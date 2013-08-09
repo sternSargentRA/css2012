@@ -1,0 +1,40 @@
+%  Labor Department Estimates of Cost-of-Living Index for Great Britain, 1915-1947 (1914=100)
+%  Table 10 of Price section, British Historical Statistics, Brian R. Mitchell
+%  The value for 1945 is reported as 293, but I suspect a typo, since the adjacent years are
+%  201 and 203.5, respectively.  Thus I enter the 1945 value as 203.
+
+1914  100
+1915  123
+1916  146
+1917  176
+1918  203
+1919  215
+1920  249
+1921  226
+1922  183
+1923  174
+1924  175
+1925  176
+1926  172
+1927  167.5
+1928  166
+1929  164
+1930  158
+1931  147.5
+1932  144
+1933  140
+1934  141
+1935  143
+1936  147
+1937  154
+1938  156
+1939  158
+1940  184
+1941  199
+1942  200
+1943  199
+1944  201
+1945  203
+1946  203.5
+1947  203
+
