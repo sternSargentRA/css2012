@@ -3,7 +3,7 @@
 %  dates for measurement error are assumed, 1791-1914 and 1915-1947.
 
 clear
-NG = 100000; % number of draws from Gibbs sampler per data file
+NG = 5000; % number of draws from Gibbs sampler per data file
 NF = 20;
 
 % catalog of data files
@@ -127,7 +127,7 @@ SMV(1,:) = sm0;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % begin MCMC
 for file = 1:NF,
-    file
+    display(file)
     for iter = 2:NG,
 
        % states conditional on hyperparameters and data
@@ -168,6 +168,10 @@ for file = 1:NF,
        SMT(1:60,1) = SMV(iter,1)*ones(60,1);
        SMT(61:124,1) = SMV(iter,2)*ones(64,1);
        SMT(125:157,1) = SMV(iter,3)*ones(33,1);
+
+       if mod(iter, 100) == 0
+        printf('On simulation: %i and Iteration %i\n', file, iter);
+       end
     end
 
     SD = SA(1:10:NG,:,:);

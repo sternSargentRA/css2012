@@ -1,10 +1,262 @@
-from math import sqrt
+from math import sqrt, log, exp
 import pandas as pd
 import numpy as np
+from numpy import matrix, ones, zeros
+from numpy.linalg import inv
+from scipy.linalg import sqrtm
 
-NG = 100000  # number of draws from Gibbs sampler per data file
+
+##---------------------------- Function definitions
+def svmhT(hlag, alpha, delta, sv, yt, hlast):
+    """
+    This function returns a draw from the posterior conditional density
+    for the stochastic volatility parameter at time T. This is
+    conditional on the lagging realization, hlag, as well as the data
+    and parameters of the svol process.
+
+    hlast is the previous draw in the chain, and is used in the acceptance step.
+    R is a dummy variable that takes a value of 1 if the trial is rejected, 0 if accepted.
+
+    Following JPR (1994), we use a MH step, but with a simpler log-normal proposal density.
+    (Their proposal is coded in jpr.m.)
+    h = svmhT(hlag, alpha, delta, sv, y, hlast)
+
+    TODO: Clean up docstring
+
+    VERIFIED (1x) SL (8-9-13)
+    """
+    # mean and variance for log(h) (proposal density)
+    mu = alpha + delta * np.log(hlag)
+    ss = sv ** 2.
+
+    # candidate draw from lognormal
+    htrial = np.exp(mu + (ss ** .5) * np.random.randn(1))
+
+    # acceptance probability
+    lp1 = -0.5 * log(htrial) - (yt ** 2) / (2 * htrial)
+    lp0 = -0.5 * log(hlast) - (yt ** 2) / (2 * hlast)
+    accept = min(1., exp(lp1 - lp0))
+
+    u = np.random.rand(1)
+    if u <= accept:
+       h = htrial
+       R = 0
+    else:
+       h = hlast
+       R = 1
+
+    return h, R
+
+
+def svmh0(hlead, alpha, delta, sv, mu0, ss0):
+    """
+    This file returns a draw from the posterior conditional density
+    for the stochastic volatility parameter at time 0.  This is conditional
+    on the first period realization, hlead, as well as the prior and parameters
+    of the svol process.
+
+    mu0 and ss0 are the prior mean and variance.  The formulas simplify if these are
+    given by the unconditional mean and variance implied by the state, but we haven't
+    imposed this.  (allows for alpha = 0, delta = 1)
+
+    Following JPR (1994), we use a MH step, but with a simpler log-normal proposal density.
+    (Their proposal is coded in jpr.m.)
+
+    Usage
+    -----
+    h = svmh0(hlead, alpha, delta, sv, mu0, ss0)
+
+    VERIFIED (1x) SL (8-9-13)
+    """
+    # mean and variance for log(h) (proposal density)
+    ssv = sv ** 2
+    ss = ss0 * ssv / (ssv + (delta ** 2) * ss0)
+    mu = ss * (mu0 / ss0 + delta * (np.log(hlead) - alpha) / ssv)
+
+    # draw from lognormal (accept = 1, since there is no observation)
+    h = np.exp(mu + (ss ** .5) * np.random.randn(1))
+
+    return h, mu, ss
+
+
+def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
+    """
+    This file returns a draw from the posterior conditional density
+    for the stochastic volatility parameter at time t.  This is conditional
+    on adjacent realizations, hlead and hlag, as well as the data and parameters
+    of the svol process.
+
+    hlast is the previous draw in the chain, and is used in the acceptance step.
+    R is a dummy variable that takes a value of 1 if the trial is rejected, 0 if accepted.
+
+    Following JPR (1994), we use a MH step, but with a simpler log-normal proposal density.
+    (Their proposal is coded in jpr.m.)
+
+    h = svmh(hlead, hlag, alpha, delta, sv, y, hlast)
+
+    TODO: Clean up docstring
+
+    VERIFIED (1x) SL (8-9-13)
+    """
+    # mean and variance for log(h) (proposal density)
+    mu = alpha*(1-delta) + delta*(np.log(hlead)+np.log(hlag)) / (1+delta**2)
+    ss = (sv**2) / (1+delta**2)
+
+    # candidate draw from lognormal
+    htrial = np.exp(mu + (ss**.5) * np.random.randn(1))
+
+    # acceptance probability
+    lp1 = -0.5 * np.log(htrial) - (yt**2) / (2 * htrial)
+    lp0 = -0.5 * np.log(hlast) - (yt**2) / (2 * hlast)
+    accept = min(1, np.exp(lp1 - lp0))
+
+    u = np.random.rand(1)
+    if u <= accept:
+        h = htrial
+        R = 0
+    else:
+        h = hlast
+        R = 1
+
+    return h, R
+
+
+def rmean(x):
+    "this computes the recursive mean for a matrix x"
+
+    N, NG = np.atleast_2d(x).shape
+    rm = zeros((NG, N))
+    rm[0, :] = x[:, 0].T
+    for i in range(1, NG):
+       rm[i, :] = rm[i - 1, :] + (1 / i) * (x[:, i].T - rm[i - 1, :])
+
+    return rm
+
+
+def kf_SWR(Y, Q, R, Sm, SI, PI, T):
+    """
+    This file performs the forward kalman filter recursions for the
+    Stock-Watson-Romer model.
+
+    Y is inflation
+    Q, R are the SW state innovation variances
+    Sm is the standard deviation of the measurement error
+    SI, PI are the initial values for the recursions, S(1|0) and P(1|0)
+    T is the sample size
+
+    Usage
+    -----
+    S0, P0, P1 = kf_SWR(Y, Q, R, Sm, SI, PI, T)
+
+    Notes
+    -----
+    In this function I use np.matrix INTERNALLY. Everything coming out
+    of this function is a numpy array.
+
+    VERIFIED (1x) SL (8-9-13)
+    """
+
+    # current estimate of the state, S(t|t)
+    S0 = zeros((2, T))
+
+    # one-step ahead estimate of the state, S(t+1|t)
+    S1 = zeros((2, T))
+
+    # current estimate of the covariance matrix, P(t|t)
+    P0 = zeros((2, 2, T))
+
+    # one-step ahead covariance matrix, P(t+1|t)
+    P1 = zeros((2, 2, T))
+
+    # constant parameters
+    A = np.array([[0, 1], [0, 1]])
+    C = np.array([1, 0])
+
+    # date 1
+    #CHECKME: Check the rest of the function
+    y10 = C.dot(SI)  # E(y(t|t-1)
+    D = np.asarray(Sm[0])
+    V10 = np.asarray(np.dot(C.dot(PI), C.T) + D.dot(D.T))  # V(y(t|t-1)
+    S0[:, 0] = SI + PI.dot(C.T) * (Y[0] - y10) / V10  # E(S(t|t))
+    P0[:, :, 0] = PI - (PI * matrix(C).T * C * PI) / V10  # V(S(t|t))
+    S1[:, 0] = A.dot(S0[:, 0])  # E(S(t+1|t)
+    B = np.array([[R[1] ** .5, Q[1] ** .5],
+                  [0, Q[1] ** .5]])
+    P1[:, :, 0] = np.dot(A.dot(P0[:, :, 0]), A.T) + B.dot(B.T)  # V(S(t+1|t)
+
+    # Iterating through the rest of the sample
+    for i in range(1, T):
+        y10 = C.dot(S1[:, i-1])  # E(y(t|t-1)
+        D = np.asarray(Sm[i])
+        V10 = np.dot(C.dot(P1[:, :, i-1]), C.T) + D.dot(D.T)  # V(y(t|t-1)
+        S0[:, i] = S1[:,i-1] + P1[:,:,i-1].dot(C.T) * (Y[i] - y10) / V10  # E(S(t|t))
+        P0[:, :, i] = P1[:, :, i-1] - (P1[:, :, i-1] * matrix(C).T * C * P1[:, :, i-1]) / V10  # V(S(t|t))
+        S1[:, i] = A.dot(S0[:, i])  # E(S(t+1|t))
+        B = np.array([[R[i+1] ** .5, Q[i+1] ** .5],
+                      [0, Q[i+1] ** .5]])
+        P1[:, :, i] = np.dot(A.dot(P0[:, :, i]), A.T) + B.dot(B.T)  # V(S(t+1|t))
+
+    return S0, P0, P1
+
+
+def ig2(v0, d0, x):
+    """
+    This file returns posterior draw, v, from an inverse gamma with
+    prior degrees of freedom v0/2 and scale parameter d0/2.  The
+    posterior values are v1 and d1, respectively. x is a vector of
+    innovations.
+
+    The simulation method follows bauwens, et al p 317.  IG2(s,v)
+         simulate x = chisquare(v)
+         deliver s/x
+    """
+
+    T = np.atleast_2d(x).shape[0]
+    v1 = v0 + T
+    d1 = d0 + x.T.dot(x)
+    z = np.random.randn(v1, 1)
+    x = z.T.dot(z)
+    v = d1 / x
+    return v, v1, d1
+
+
+def gibbs1_swr(S0, P0, P1, T):
+    """
+    function SA = GIBBS1_SWR(S0,P0,P1,T);
+
+    This file executes the Carter-Kohn backward sampler for the
+    Stock-Watson-Romer model.
+
+    S0, P0, P1 are outputs of the forward Kalman filter
+
+    VERIFIED (1x) SL (8-9-13)
+    """
+    A = np.array([[0, 1], [0, 1]])
+
+    # initialize arrays for Gibbs sampler
+    SA = zeros((2, T))  # artificial states
+    SM = zeros((2, 1))  # backward update for conditional mean of state vector
+    PM = zeros((2, 2))  # backward update for projection matrix
+    P = zeros((2, 2))  # backward update for conditional variance matrix
+    wa = np.random.randn(2, T)  # draws for state innovations
+
+    # Backward recursions and sampling
+    # Terminal state
+    SA[:, -1] = S0[:, -1] + np.real(sqrtm(P0[:, :, -1])).dot(wa[:, -1])
+
+    # iterating back through the rest of the sample
+    for i in range(2, T):
+        PM = np.dot(P0[:, :, -i].dot(A.T), inv(P1[:, :, -i]))
+        P = P0[:, :, -i] - np.dot(PM.dot(A), P0[:, :, -i])
+        SM = S0[:, -i] + PM.dot(SA[:, -i+1] - A.dot(S0[:, -i]))
+        SA[:, -i] = SM + np.real(sqrtm(P)).dot(wa[:,-i])
+
+    return SA
+
+##---------------------------- Main Course
+
+NG = 5000  # number of draws from Gibbs sampler per data file
 NF = 20
-
 
 ##----- Load data
 # Load military data
@@ -43,11 +295,11 @@ data = pd.DataFrame(y, index=date)
 
 ##----- Set VAR properties
 L = 0  # VAR lag order
-YS = y[L: t - 1]
+YS = y[L: t]
 
 ##----- A weakly informative prior
-# prior mean on initial value of state; first element is \pi
-SI = np.ones(2) * Y0.mean()
+# prior mean on initial value of state first element is \pi
+SI = ones(2) * Y0.mean()
 
 # prior variance on initial state
 PI = np.array([[.15 ** 2, 0], [0, 0.025 ** 2]])
@@ -71,7 +323,7 @@ ss0 = 5
 ##----- prior for measurement-error variance \sigma_m (prior is same for both
 # periods)
 vm0 = 7.
-sm0 = 0.5 * sqrt(R0)  *sqrt((vm0 + 1) / vm0)
+sm0 = 0.5 * sqrt(R0) * sqrt((vm0 + 1) / vm0)
 dm0 = vm0 * (sm0 * 2)
 
 # after 1948, the measurement error has a standard deviation of 1 basis point.
@@ -79,11 +331,11 @@ dm0 = vm0 * (sm0 * 2)
 sm_post_48 = 0.0001
 
 ##----- initialize gibbs arrays
-SA = np.zeros((NG, 2, t))  # draws of the state vector
-QA = np.zeros((t+1, NG))  # stochastic volatilities for SW permanent innovation
-RA = np.zeros((t+1, NG))  # stochastic volatilities for SW transient innovation
-SV = np.zeros((NG, 2))  # standard error for log volatility innovations
-SMV = np.zeros((NG, 3))  # standard error for measurement error
+SA = zeros((NG, 2, t))  # draws of the state vector
+QA = zeros((t+1, NG))  # stochastic volatilities for SW permanent innovation
+RA = zeros((t+1, NG))  # stochastic volatilities for SW transient innovation
+SV = zeros((NG, 2))  # standard error for log volatility innovations
+SMV = zeros((NG, 3))  # standard error for measurement error
 
 ##----- initialize stochastic volatilities and measurement error variance
 QA[:, 0] = Q0
@@ -91,9 +343,26 @@ RA[:, 0] = R0
 SV[0, :] = [svr0, svq0]
 
 # set up SMT
-SMT = np.zeros(date.size)
+SMT = zeros(date.size)
 SMT[:157] = sm0
 SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 ##----- begin MCMC
+for i_f in xrange(1):
+    for i_g in xrange(1, 2):
+
+        S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
+        SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
+
+        # stochastic volatilities
+        f = np.diff(np.column_stack([SI, SA[i_g, :, ]])).T
+
+        # log R|sv,y
+        RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0], np.log(R0), ss0)[0]
+        for i in xrange(1, t):
+            RA[i, i_g] = svmh(RA[i+1, i_g - 1], RA[i-1, i_g], 0, 1,
+                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])[0]
+
+        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 1],
+                            RA[-1, i_g-1])[0]

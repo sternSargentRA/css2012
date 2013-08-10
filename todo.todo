@@ -1,2 +1,11 @@
 SWUC_model_SWRprior_2011:
- ☐ On line 128 (MCMC)
+ ☐ Python
+   ☐ On line 145 (log Q|sv,y) of main file
+   ☐ Test all functions
+     ☐ rmean
+     ☐ ig2
+   ✔ ig2.m @done (13-08-09 22:55)
+   ✔ GIBBS1_SWR.m @done (13-08-09 23:04)
+ ☐ Julia
+   ☐ Get Data from Python
+   ☐ start writing functions
