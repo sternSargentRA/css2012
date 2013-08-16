@@ -4,14 +4,14 @@ function [h,R] = svmh(hlead,hlag,alpha,delta,sv,yt,hlast);
 
 % This file returns a draw from the posterior conditional density
 % for the stochastic volatility parameter at time t.  This is conditional
-% on adjacent realizations, hlead and hlag, as well as the data and parameters 
-% of the svol process.  
+% on adjacent realizations, hlead and hlag, as well as the data and parameters
+% of the svol process.
 
-% hlast is the previous draw in the chain, and is used in the acceptance step. 
+% hlast is the previous draw in the chain, and is used in the acceptance step.
 % R is a dummy variable that takes a value of 1 if the trial is rejected, 0 if accepted.
 
-% Following JPR (1994), we use a MH step, but with a simpler log-normal proposal density. 
-% (Their proposal is coded in jpr.m.) 
+% Following JPR (1994), we use a MH step, but with a simpler log-normal proposal density.
+% (Their proposal is coded in jpr.m.)
 
 % mean and variance for log(h) (proposal density)
 mu = alpha*(1-delta) + delta*(log(hlead)+log(hlag))/(1+delta^2);
