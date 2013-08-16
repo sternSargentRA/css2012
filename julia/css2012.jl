@@ -8,7 +8,7 @@ NG = 5000 # number of draws from Gibbs sampler per data file
 NF = 20
 
 ##---------------------------- Function definitions
-include("cssfuncs.jl")
+include("cssfuncs.jl")  # Just include these functions from the other file.
 
 ##---------------------------- Load Data
 # Load military data
