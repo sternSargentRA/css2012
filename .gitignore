@@ -33,3 +33,7 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# no .mat files
+*.mat
+/Matlab/swuc_swrp_*
