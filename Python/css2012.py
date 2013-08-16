@@ -370,7 +370,7 @@ for i_f in xrange(1):
         # log R|sv,y and log Q|sv, y
         RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
                            np.log(R0), ss0)[0]
-        QA[0, i_g] = svmh0(QA[1,i_g-1], 0, 1, SV[i_g-1, 1],
+        QA[0, i_g] = svmh0(QA[1, i_g-1], 0, 1, SV[i_g-1, 1],
                            np.log(Q0), ss0)[0]
         for i in range(1, t):
             RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
@@ -378,8 +378,10 @@ for i_f in xrange(1):
 
             # TODO: Bug here when
             QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 1], f[t-1, 1], QA[t,i_g-1])[0]
+                              SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])[0]
 
+        # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
+        # TODO: Also check that QA/RA.shape[0] == t+1
         RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
                             RA[-1, i_g-1])[0]
 
@@ -390,6 +392,7 @@ for i_f in xrange(1):
         lr = np.log(RA[:, i_g])
         er = lr[1:] - lr[:-1]  # random walk
         v = ig2(v0, dr0, er)[0]
+        # TODO: Check v.size here. It was off before, not sure if it still is
         SV[i_g, 0] = v ** .5
 
         #svq
@@ -404,7 +407,7 @@ for i_f in xrange(1):
         v2 = ig2(vm0, dm0, em[60:124])[0]  # measurement error 1851-1914 (Bowley)
         v3 = ig2(vm0, dm0, em[124:157])[0]  # measurement error 1915-1947 (Labor Department)
         SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
-        SMT[1:60] = SMV[i_g, 0]
+        SMT[:60] = SMV[i_g, 0]
         SMT[60:124] = SMV[i_g, 1]
         SMT[124:157] = SMV[i_g, 2]
 
@@ -428,6 +431,8 @@ for i_f in xrange(1):
             'RD': RD,
             'VD': VD,
             'MD': MD}
+
+    savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
     SA[0, :] = SA[-1, :]
