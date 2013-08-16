@@ -1,9 +1,14 @@
+import sys
 from math import sqrt, log, exp
 import pandas as pd
 import numpy as np
 from numpy import matrix, ones, zeros
 from numpy.linalg import inv
 from scipy.linalg import sqrtm
+from scipy.io import savemat
+
+if sys.version_info[0] >= 3:
+    xrange = range
 
 
 ##---------------------------- Function definitions
@@ -73,6 +78,8 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     ss = ss0 * ssv / (ssv + (delta ** 2) * ss0)
     mu = ss * (mu0 / ss0 + delta * (np.log(hlead) - alpha) / ssv)
 
+    # import pdb; pdb.set_trace()
+
     # draw from lognormal (accept = 1, since there is no observation)
     h = np.exp(mu + (ss ** .5) * np.random.randn(1))
 
@@ -124,11 +131,11 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
 def rmean(x):
     "this computes the recursive mean for a matrix x"
 
-    N, NG = np.atleast_2d(x).shape
+    N, NG = x.shape
     rm = zeros((NG, N))
     rm[0, :] = x[:, 0].T
     for i in range(1, NG):
-       rm[i, :] = rm[i - 1, :] + (1 / i) * (x[:, i].T - rm[i - 1, :])
+        rm[i, :] = rm[i - 1, :] + (1 / i) * (x[:, i].T - rm[i - 1, :])
 
     return rm
 
@@ -207,15 +214,16 @@ def ig2(v0, d0, x):
     innovations.
 
     The simulation method follows bauwens, et al p 317.  IG2(s,v)
-         simulate x = chisquare(v)
-         deliver s/x
-    """
+        simulate x = chisquare(v)
+        deliver s/x
 
-    T = np.atleast_2d(x).shape[0]
+    BUG: Should return scalar.
+    """
+    T = x.size if x.ndim == 1 else x.shape[0]
     v1 = v0 + T
-    d1 = d0 + x.T.dot(x)
-    z = np.random.randn(v1, 1)
-    x = z.T.dot(z)
+    d1 = d0 + np.inner(x, x)
+    z = np.random.randn(v1)
+    x = np.inner(z, z)
     v = d1 / x
     return v, v1, d1
 
@@ -274,12 +282,12 @@ lnP = np.log(pd.read_csv('../data/Lindert_Williamson.txt',
                          skiprows=4, sep='  '))
 YS_1791_1850 = lnP.diff().values.ravel()[1:]
 
-# Load Lindert Williamson data
+# Load Bowley data
 lnP = np.log(pd.read_csv('../data/Bowley.txt',
                          skiprows=3, sep='  ').dropna())
 YS_1847_1914 = lnP.diff().values.ravel()[1:]
 
-# Load Lindert Williamson data
+# Load LaborDepartmetn data
 lnP = np.log(pd.read_csv('../data/LaborDepartment.txt',
                          skiprows=4, sep='  '))
 YS_1915_1947 = lnP.diff().values.ravel()[1:-1]
@@ -292,6 +300,7 @@ y = np.concatenate([YS_1791_1850,
 t = y.shape[0]
 date = np.arange(t) + 1791
 data = pd.DataFrame(y, index=date)
+data.to_csv('all_data.csv')
 
 ##----- Set VAR properties
 L = 0  # VAR lag order
@@ -350,19 +359,83 @@ SMV[0, :] = sm0
 
 ##----- begin MCMC
 for i_f in xrange(1):
-    for i_g in xrange(1, 2):
+    for i_g in xrange(1, NG):
 
         S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
-        f = np.diff(np.column_stack([SI, SA[i_g, :, ]])).T
+        f = np.diff(np.column_stack([SI, SA[i_g, :, :]])).T
 
-        # log R|sv,y
-        RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0], np.log(R0), ss0)[0]
-        for i in xrange(1, t):
-            RA[i, i_g] = svmh(RA[i+1, i_g - 1], RA[i-1, i_g], 0, 1,
+        # log R|sv,y and log Q|sv, y
+        RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
+                           np.log(R0), ss0)[0]
+        QA[0, i_g] = svmh0(QA[1,i_g-1], 0, 1, SV[i_g-1, 1],
+                           np.log(Q0), ss0)[0]
+        for i in range(1, t):
+            RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
                               SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])[0]
 
-        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 1],
+            # TODO: Bug here when
+            QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
+                              SV[i_g-1, 1], f[t-1, 1], QA[t,i_g-1])[0]
+
+        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
                             RA[-1, i_g-1])[0]
+
+        QA[-1, i_g] = svmhT(QA[-2, i_g], 0, 1, SV[i_g-1, 1], f[-1, 1],
+                            QA[-1, i_g-1])[0]
+
+        # svr
+        lr = np.log(RA[:, i_g])
+        er = lr[1:] - lr[:-1]  # random walk
+        v = ig2(v0, dr0, er)[0]
+        SV[i_g, 0] = v ** .5
+
+        #svq
+        lq = np.log(QA[:, i_g])
+        eq = lq[1:] - lq[:-1]  # random walk
+        v = ig2(v0, dr0, eq)[0]
+        SV[i_g, 0] = v ** .5
+
+        # measurement error
+        em = YS - SA[i_g, 0, :]
+        v1 = ig2(vm0, dm0, em[:60])[0]  # measurement error 1791-1850 (Lindert-Williamson)
+        v2 = ig2(vm0, dm0, em[60:124])[0]  # measurement error 1851-1914 (Bowley)
+        v3 = ig2(vm0, dm0, em[124:157])[0]  # measurement error 1915-1947 (Labor Department)
+        SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
+        SMT[1:60] = SMV[i_g, 0]
+        SMT[60:124] = SMV[i_g, 1]
+        SMT[124:157] = SMV[i_g, 2]
+
+        if i_g % 100 == 0:
+            print('On simulation: %i and Iteration %i\n' % (i_f, i_g))
+
+    if i_f < 10:
+        num = '0' + str(i_f)
+    else:
+        num = str(i_f)
+    f_name = 'swuc_swrp_' + num + '.mat'
+
+    SD = SA[0:-1:10, :, :]
+    RD = RA[:, 0:-1:10]
+    QD = QA[:, 0:-1:10]
+    VD = SV[0:-1:10, :]
+    MD = SMV[0:-1:10, :]
+
+    data = {'SD': SD,
+            'QD': QD,
+            'RD': RD,
+            'VD': VD,
+            'MD': MD}
+
+  # Re-initialize the Gibbs arrays as buffer for back step
+    SA[0, :] = SA[-1, :]
+    QA[:, 0] = QA[:, -1]
+    RA[:, 0] = RA[:, -1]
+    SV[0, :] = SV[-1, :]
+    SMV[0, :] = SMV[-1, :]
+
+
+
+# RA, S0, P0, P1 = data['RA'], data['SO'], data['P0'], data['P1']
