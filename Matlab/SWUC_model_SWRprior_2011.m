@@ -1,32 +1,32 @@
 %  This simulates the posterior for the Stock-Watson-Romer UC model with
 %  stochastic volatility and measurement error.  For the UK, two break
 %  dates for measurement error are assumed, 1791-1914 and 1915-1947.
-
+tic;
 clear
 NG = 5000; % number of draws from Gibbs sampler per data file
 NF = 20;
 
 % catalog of data files
-DFILE(1,:) = ['swuc_swrp_01'];
-DFILE(2,:) = ['swuc_swrp_02'];
-DFILE(3,:) = ['swuc_swrp_03'];
-DFILE(4,:) = ['swuc_swrp_04'];
-DFILE(5,:) = ['swuc_swrp_05'];
-DFILE(6,:) = ['swuc_swrp_06'];
-DFILE(7,:) = ['swuc_swrp_07'];
-DFILE(8,:) = ['swuc_swrp_08'];
-DFILE(9,:) = ['swuc_swrp_09'];
-DFILE(10,:) = ['swuc_swrp_10'];
-DFILE(11,:) = ['swuc_swrp_11'];
-DFILE(12,:) = ['swuc_swrp_12'];
-DFILE(13,:) = ['swuc_swrp_13'];
-DFILE(14,:) = ['swuc_swrp_14'];
-DFILE(15,:) = ['swuc_swrp_15'];
-DFILE(16,:) = ['swuc_swrp_16'];
-DFILE(17,:) = ['swuc_swrp_17'];
-DFILE(18,:) = ['swuc_swrp_18'];
-DFILE(19,:) = ['swuc_swrp_19'];
-DFILE(20,:) = ['swuc_swrp_20'];
+DFILE(1,:) = ['swuc_swrp_01.mat'];
+DFILE(2,:) = ['swuc_swrp_02.mat'];
+DFILE(3,:) = ['swuc_swrp_03.mat'];
+DFILE(4,:) = ['swuc_swrp_04.mat'];
+DFILE(5,:) = ['swuc_swrp_05.mat'];
+DFILE(6,:) = ['swuc_swrp_06.mat'];
+DFILE(7,:) = ['swuc_swrp_07.mat'];
+DFILE(8,:) = ['swuc_swrp_08.mat'];
+DFILE(9,:) = ['swuc_swrp_09.mat'];
+DFILE(10,:) = ['swuc_swrp_10.mat'];
+DFILE(11,:) = ['swuc_swrp_11.mat'];
+DFILE(12,:) = ['swuc_swrp_12.mat'];
+DFILE(13,:) = ['swuc_swrp_13.mat'];
+DFILE(14,:) = ['swuc_swrp_14.mat'];
+DFILE(15,:) = ['swuc_swrp_15.mat'];
+DFILE(16,:) = ['swuc_swrp_16.mat'];
+DFILE(17,:) = ['swuc_swrp_17.mat'];
+DFILE(18,:) = ['swuc_swrp_18.mat'];
+DFILE(19,:) = ['swuc_swrp_19.mat'];
+DFILE(20,:) = ['swuc_swrp_20.mat'];
 
 % variables to be saved
 varname(1,:) = ['SD']; % states
@@ -126,7 +126,7 @@ SMV(1,:) = sm0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % begin MCMC
-for file = 1:NF,
+for file = 1:1,
     display(file)
     for iter = 2:NG,
 
@@ -180,7 +180,11 @@ for file = 1:NF,
     VD = SV(1:10:NG,:);
     MD = SMV(1:10:NG,:);
 
-    save(DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
+    if inoctave() == 1
+      save("-v7", DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
+    else
+      save(DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
+    end
 
     % reinitialize gibbs arrays (buffer for back step)
     SA(1,:) = SA(NG,:);
@@ -188,6 +192,8 @@ for file = 1:NF,
     RA(:,1) = RA(:,NG);
     SV(1,:) = SV(NG,:);
     SMV(1,:) = SMV(NG,:);
+
+    toc
 
 end
 exit
