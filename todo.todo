@@ -8,9 +8,11 @@ SWUC_model_SWRprior_2011:
    ✔ GIBBS1_SWR.m @done (13-08-09 23:04)
 Julia:
    ✔ Get Data from Python (Maybe use DataFrames if I feel ambitious) @done (13-08-13 00:39)
-   ☐ verify functions
+   ✔ verify functions @done (13-08-15 23:57)
      ✔ kf_SWR @done (13-08-13 00:57)
      ✔ gibbs1_swr -- Not correct!!! (12:58 PM) Fixed (4:02 PM) @done (13-08-13 16:02)
-     ☐ svmh0
-     ☐ svmh
-     ☐ svmhT
+     ✔ svmh0 @done (13-08-15 23:57)
+     ✔ svmh @done (13-08-15 23:57)
+     ✔ svmhT @done (13-08-15 23:57)
+   ☐ Replicate figures
+   ☐ Parallelize it.
