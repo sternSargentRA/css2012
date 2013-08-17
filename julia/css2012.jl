@@ -11,20 +11,10 @@ NF = 20
 include("cssfuncs.jl")  # Just include these functions from the other file.
 
 ##---------------------------- Load Data
-# Load military data
-A = readcsv("../data/UKdata.txt")[:, 2]
-y =(log(A[2:end]) - log(A[1:end-1]))
-T = size(y, 1)
-date = 1210 + [0:1:T-1]
-
-Y0 = y[512:581]  # 1721-1790 training sample
-YS_1948_2011 = y[739:802] # 1948-2011
-
-# TODO: This is a hack from Python... Makes life easier for now
-y = readcsv("../Matlab/y.csv")
-
-T = size(y, 1)
-date = 1791 + [0:1:T-1]
+# TODO: Is this the best way to have non-repetitive code inclusion? My only
+#       hangup is that some variables that are used below aren't defined in
+#       this file.
+include("load_data.jl")
 
 ##---------------------------- Main Course
 ## VAR lag order
@@ -139,13 +129,8 @@ for file = 1:NF
         f_name = "swuc_swrp_$file.mat"
     end
 
-    matwrite(f_name, {
-             "SD" => SD,
-             "QD" => QD,
-             "RD" => RD,
-             "VD" => VD,
-             "MD" => MD
-             })
+    matwrite(f_name, {"SD" => SD, "QD" => QD, "RD" => RD, "VD" => VD,
+                      "MD" => MD})
 
     # reinitialize gibbs arrays (buffer for back step)
     SA[1,:] = SA[NG,:]
