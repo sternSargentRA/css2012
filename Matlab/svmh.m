@@ -1,4 +1,5 @@
 function [h,R] = svmh(hlead,hlag,alpha,delta,sv,yt,hlast);
+global rand_ind randoms;
 
 % h = svmh(hlead,hlag,alpha,delta,sv,y,hlast);
 
@@ -18,14 +19,18 @@ mu = alpha*(1-delta) + delta*(log(hlead)+log(hlag))/(1+delta^2);
 ss = (sv^2)/(1+delta^2);
 
 % candidate draw from lognormal
-htrial = exp(mu + (ss^.5)*randn(1,1));
+% htrial = exp(mu + (ss^.5)*randn(1,1));
+htrial = exp(mu + (ss^.5)*randoms(rand_ind));
+rand_ind = rand_ind + 1;
 
 % acceptance probability
 lp1 = -0.5*log(htrial) - (yt^2)/(2*htrial);
 lp0 = -0.5*log(hlast) - (yt^2)/(2*hlast);
 accept = min(1,exp(lp1 - lp0));
 
-u = rand(1);
+% u = rand(1);
+u = randoms(rand_ind);
+rand_ind = rand_ind + 1;
 if u <= accept,
    h = htrial;
    R = 0;

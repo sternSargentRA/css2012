@@ -5,11 +5,15 @@ import numpy as np
 from numpy import matrix, ones, zeros
 from numpy.linalg import inv
 from scipy.linalg import sqrtm
-from scipy.io import savemat
+from scipy.io import savemat, loadmat
 
 if sys.version_info[0] >= 3:
     xrange = range
 
+data = loadmat("../randn.mat")
+randoms = np.squeeze(data['x'])
+rand_ind = 0
+del data
 
 ##---------------------------- Function definitions
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
@@ -30,25 +34,31 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
 
     VERIFIED (1x) SL (8-9-13)
     """
+    global rand_ind, randoms
     # mean and variance for log(h) (proposal density)
     mu = alpha + delta * np.log(hlag)
     ss = sv ** 2.
 
     # candidate draw from lognormal
-    htrial = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    # htrial = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    htrial = np.exp(mu + (ss ** .5) * randoms[rand_ind])
+    rand_ind += 1
 
     # acceptance probability
     lp1 = -0.5 * log(htrial) - (yt ** 2) / (2 * htrial)
     lp0 = -0.5 * log(hlast) - (yt ** 2) / (2 * hlast)
     accept = min(1., exp(lp1 - lp0))
 
-    u = np.random.rand(1)
+    # u = np.random.rand(1)
+    u = randoms[rand_ind]
+    rand_ind += 1
+
     if u <= accept:
-       h = htrial
-       R = 0
+        h = htrial
+        R = 0
     else:
-       h = hlast
-       R = 1
+        h = hlast
+        R = 1
 
     return h, R
 
@@ -73,6 +83,7 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
 
     VERIFIED (1x) SL (8-9-13)
     """
+    global rand_ind, randoms
     # mean and variance for log(h) (proposal density)
     ssv = sv ** 2
     ss = ss0 * ssv / (ssv + (delta ** 2) * ss0)
@@ -81,7 +92,9 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     # import pdb; pdb.set_trace()
 
     # draw from lognormal (accept = 1, since there is no observation)
-    h = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    # h = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    h = np.exp(mu + (ss ** .5) * randoms[rand_ind])
+    rand_ind += 1
 
     return h, mu, ss
 
@@ -105,19 +118,24 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
 
     VERIFIED (1x) SL (8-9-13)
     """
+    global rand_ind, randoms
     # mean and variance for log(h) (proposal density)
     mu = alpha*(1-delta) + delta*(np.log(hlead)+np.log(hlag)) / (1+delta**2)
     ss = (sv**2) / (1+delta**2)
 
     # candidate draw from lognormal
-    htrial = np.exp(mu + (ss**.5) * np.random.randn(1))
+    # htrial = np.exp(mu + (ss**.5) * np.random.randn(1))
+    htrial = np.exp(mu + (ss**.5) * randoms[rand_ind])
+    rand_ind += 1
 
     # acceptance probability
     lp1 = -0.5 * np.log(htrial) - (yt**2) / (2 * htrial)
     lp0 = -0.5 * np.log(hlast) - (yt**2) / (2 * hlast)
     accept = min(1, np.exp(lp1 - lp0))
 
-    u = np.random.rand(1)
+    # u = np.random.rand(1)
+    u = randoms[rand_ind]
+    rand_ind += 1
     if u <= accept:
         h = htrial
         R = 0
@@ -219,10 +237,15 @@ def ig2(v0, d0, x):
 
     BUG: Should return scalar.
     """
+    global rand_ind, randoms
     T = x.size if x.ndim == 1 else x.shape[0]
     v1 = v0 + T
     d1 = d0 + np.inner(x, x)
-    z = np.random.randn(v1)
+
+    # z = np.random.randn(v1)
+    z = randoms[rand_ind:rand_ind + v1]
+    rand_ind += v1
+
     x = np.inner(z, z)
     v = d1 / x
     return v, v1, d1
@@ -239,6 +262,7 @@ def gibbs1_swr(S0, P0, P1, T):
 
     VERIFIED (1x) SL (8-9-13)
     """
+    global rand_ind, randoms
     A = np.array([[0, 1], [0, 1]])
 
     # initialize arrays for Gibbs sampler
@@ -246,7 +270,10 @@ def gibbs1_swr(S0, P0, P1, T):
     SM = zeros((2, 1))  # backward update for conditional mean of state vector
     PM = zeros((2, 2))  # backward update for projection matrix
     P = zeros((2, 2))  # backward update for conditional variance matrix
-    wa = np.random.randn(2, T)  # draws for state innovations
+
+    # wa = np.random.randn(2, T)  # draws for state innovations
+    wa = randoms[rand_ind:rand_ind + (2*T)].reshape(2, T)  # draws for state innovations
+    rand_ind += 2 * T
 
     # Backward recursions and sampling
     # Terminal state

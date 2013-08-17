@@ -6,6 +6,12 @@ clear
 NG = 5000; % number of draws from Gibbs sampler per data file
 NF = 20;
 
+global rand_ind randoms;
+rand_ind = 1;
+load ../randn.mat;
+randoms = x;
+clear x;
+
 % catalog of data files
 DFILE(1,:) = ['swuc_swrp_01.mat'];
 DFILE(2,:) = ['swuc_swrp_02.mat'];

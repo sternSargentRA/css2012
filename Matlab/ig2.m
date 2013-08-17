@@ -9,11 +9,14 @@ function [v,v1,d1] = ig2(v0,d0,x);
 % The simulation method follows bauwens, et al p 317.  IG2(s,v)
 %      simulate x = chisquare(v)
 %      deliver s/x
-  
+global rand_ind randoms;
+
 T = size(x,1);
 v1 = v0 + T;
 d1 = d0 + x'*x;
-z = randn(v1,1);
+% z = randn(v1,1);
+z = randoms(rand_ind:rand_ind+v1);
+rand_ind = rand_ind + v1;
 x = z'*z;
 v = d1/x;
 end

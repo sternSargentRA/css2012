@@ -1,5 +1,7 @@
 function SA = GIBBS1_SWR(S0,P0,P1,T);
 
+global rand_ind randoms;
+
 % function SA = GIBBS1_SWR(S0,P0,P1,T);
 
 % This file executes the Carter-Kohn backward sampler for the
@@ -13,7 +15,11 @@ SA = zeros(2,T); % artificial states
 SM = zeros(2,1); % backward update for conditional mean of state vector
 PM = zeros(2,2); % backward update for projection matrix
 P = zeros(2,2); % backward update for conditional variance matrix
-wa = randn(2,T); % draws for state innovations
+
+wa = reshape(randoms(rand_ind:rand_ind + 2 * T), 2, T);
+rand_ind = rand_ind + 2 * T;
+
+% wa = randn(2,T); % draws for state innovations
 
 % Backward recursions and sampling
 % Terminal state

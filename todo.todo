@@ -3,9 +3,11 @@ SWUC_model_SWRprior_2011:
    ✔ On line 145 (log Q|sv,y) of main file @done (13-08-13 00:39)
    ☐ Test all functions
      ☐ rmean -- Is this even used?
-     ✔ ig2 @done (13-08-12 16:07)
-   ✔ ig2.m @done (13-08-09 22:55)
-   ✔ GIBBS1_SWR.m @done (13-08-09 23:04)
+   ☐ Global randoms.
+     Use the file randn.mat as a global variable "randoms" together with a global index "rand_ind" to ensure Matlab and Python always have the same random variables. This should allow me to use the debugger to step through each function call and see where things diverge.
+     The Matlab and Python code have both been updated to use these global variables and now I just need to do the checking.
+
+
 Julia:
    ✔ Get Data from Python (Maybe use DataFrames if I feel ambitious) @done (13-08-13 00:39)
    ✔ verify functions @done (13-08-15 23:57)
