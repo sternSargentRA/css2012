@@ -44,11 +44,11 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
 
     u = np.random.rand(1)
     if u <= accept:
-       h = htrial
-       R = 0
+        h = htrial
+        R = 0
     else:
-       h = hlast
-       R = 1
+        h = hlast
+        R = 1
 
     return h, R
 
@@ -253,7 +253,7 @@ def gibbs1_swr(S0, P0, P1, T):
     SA[:, -1] = S0[:, -1] + np.real(sqrtm(P0[:, :, -1])).dot(wa[:, -1])
 
     # iterating back through the rest of the sample
-    for i in range(2, T):
+    for i in range(2, T + 1):
         PM = np.dot(P0[:, :, -i].dot(A.T), inv(P1[:, :, -i]))
         P = P0[:, :, -i] - np.dot(PM.dot(A), P0[:, :, -i])
         SM = S0[:, -i] + PM.dot(SA[:, -i+1] - A.dot(S0[:, -i]))
@@ -333,7 +333,7 @@ ss0 = 5
 # periods)
 vm0 = 7.
 sm0 = 0.5 * sqrt(R0) * sqrt((vm0 + 1) / vm0)
-dm0 = vm0 * (sm0 * 2)
+dm0 = vm0 * (sm0 ** 2)
 
 # after 1948, the measurement error has a standard deviation of 1 basis point.
 # This is just to simplify programming
@@ -392,14 +392,13 @@ for i_f in xrange(1):
         lr = np.log(RA[:, i_g])
         er = lr[1:] - lr[:-1]  # random walk
         v = ig2(v0, dr0, er)[0]
-        # TODO: Check v.size here. It was off before, not sure if it still is
-        SV[i_g, 0] = v ** .5
+        SV[i_g, 0] = sqrt(v)
 
         #svq
         lq = np.log(QA[:, i_g])
         eq = lq[1:] - lq[:-1]  # random walk
         v = ig2(v0, dr0, eq)[0]
-        SV[i_g, 0] = v ** .5
+        SV[i_g, 1] = sqrt(v)
 
         # measurement error
         em = YS - SA[i_g, 0, :]
@@ -412,7 +411,7 @@ for i_f in xrange(1):
         SMT[124:157] = SMV[i_g, 2]
 
         if i_g % 100 == 0:
-            print('On simulation: %i and Iteration %i\n' % (i_f, i_g))
+            print("Iteration (%i, %i)" % (i_f, i_g))
 
     if i_f < 10:
         num = '0' + str(i_f)
