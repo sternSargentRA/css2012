@@ -417,7 +417,7 @@ for i_f in xrange(1):
         num = '0' + str(i_f)
     else:
         num = str(i_f)
-    f_name = 'swuc_swrp_' + num + '.mat'
+    f_name = './output/swuc_swrp_' + num + '.mat'
 
     SD = SA[0:-1:10, :, :]
     RD = RA[:, 0:-1:10]
