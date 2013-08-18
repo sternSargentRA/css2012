@@ -1,4 +1,5 @@
 import sys
+from time import time
 from math import sqrt, log, exp
 import pandas as pd
 import numpy as np
@@ -10,6 +11,7 @@ from scipy.io import savemat
 if sys.version_info[0] >= 3:
     xrange = range
 
+start_time = time()
 
 ##---------------------------- Function definitions
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
@@ -358,7 +360,7 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 ##----- begin MCMC
-for i_f in xrange(1):
+for i_f in xrange(NF):
     for i_g in xrange(1, NG):
 
         S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
@@ -411,7 +413,8 @@ for i_f in xrange(1):
         SMT[124:157] = SMV[i_g, 2]
 
         if i_g % 100 == 0:
-            print("Iteration (%i, %i)" % (i_f, i_g))
+            e_time = time() - start_time
+            print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
 
     if i_f < 10:
         num = '0' + str(i_f)
