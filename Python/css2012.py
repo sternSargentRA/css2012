@@ -272,7 +272,7 @@ def gibbs1_swr(S0, P0, P1, T):
     P = zeros((2, 2))  # backward update for conditional variance matrix
 
     # wa = np.random.randn(2, T)  # draws for state innovations
-    wa = randoms[rand_ind:rand_ind + (2*T)].reshape(2, T)  # draws for state innovations
+    wa = randoms[rand_ind:rand_ind + (2*T)].reshape(2, T, order='F')  # draws for state innovations
     rand_ind += 2 * T
 
     # Backward recursions and sampling
@@ -280,7 +280,7 @@ def gibbs1_swr(S0, P0, P1, T):
     SA[:, -1] = S0[:, -1] + np.real(sqrtm(P0[:, :, -1])).dot(wa[:, -1])
 
     # iterating back through the rest of the sample
-    for i in range(2, T):
+    for i in range(2, T + 1):
         PM = np.dot(P0[:, :, -i].dot(A.T), inv(P1[:, :, -i]))
         P = P0[:, :, -i] - np.dot(PM.dot(A), P0[:, :, -i])
         SM = S0[:, -i] + PM.dot(SA[:, -i+1] - A.dot(S0[:, -i]))
@@ -360,7 +360,7 @@ ss0 = 5
 # periods)
 vm0 = 7.
 sm0 = 0.5 * sqrt(R0) * sqrt((vm0 + 1) / vm0)
-dm0 = vm0 * (sm0 * 2)
+dm0 = vm0 * (sm0 ** 2)
 
 # after 1948, the measurement error has a standard deviation of 1 basis point.
 # This is just to simplify programming
@@ -389,6 +389,7 @@ for i_f in xrange(1):
     for i_g in xrange(1, NG):
 
         S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
+
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
@@ -397,36 +398,35 @@ for i_f in xrange(1):
         # log R|sv,y and log Q|sv, y
         RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
                            np.log(R0), ss0)[0]
+        for i in range(1, t):
+            RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1, SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])[0]
+
+        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
+                            RA[-1, i_g-1])[0]
+
         QA[0, i_g] = svmh0(QA[1, i_g-1], 0, 1, SV[i_g-1, 1],
                            np.log(Q0), ss0)[0]
-        for i in range(1, t):
-            RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])[0]
 
+        for i in range(1, t):
             # TODO: Bug here when
             QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
                               SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])[0]
 
-        # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
-        # TODO: Also check that QA/RA.shape[0] == t+1
-        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
-                            RA[-1, i_g-1])[0]
-
         QA[-1, i_g] = svmhT(QA[-2, i_g], 0, 1, SV[i_g-1, 1], f[-1, 1],
                             QA[-1, i_g-1])[0]
 
-        # svr
+        # BUG: 2013-08-17 18:09:32 PST. At this point, RA is incorrect
         lr = np.log(RA[:, i_g])
         er = lr[1:] - lr[:-1]  # random walk
         v = ig2(v0, dr0, er)[0]
         # TODO: Check v.size here. It was off before, not sure if it still is
-        SV[i_g, 0] = v ** .5
+        SV[i_g, 0] = sqrt(v)
 
         #svq
         lq = np.log(QA[:, i_g])
         eq = lq[1:] - lq[:-1]  # random walk
         v = ig2(v0, dr0, eq)[0]
-        SV[i_g, 0] = v ** .5
+        SV[i_g, 1] = sqrt(v)
 
         # measurement error
         em = YS - SA[i_g, 0, :]
