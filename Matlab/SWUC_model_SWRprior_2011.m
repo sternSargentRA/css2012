@@ -176,7 +176,7 @@ for file = 1:1,
        SMT(125:157,1) = SMV(iter,3)*ones(33,1);
 
        if mod(iter, 100) == 0
-        printf('On simulation: %i and Iteration %i\n', file, iter);
+        fprintf('On simulation: %i and Iteration %i\n', file, iter);
        end
     end
 
@@ -186,11 +186,7 @@ for file = 1:1,
     VD = SV(1:10:NG,:);
     MD = SMV(1:10:NG,:);
 
-    if inoctave() == 1
-      save("-v7", DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
-    else
-      save(DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
-    end
+    save(DFILE(file,:),varname(1,:),varname(2,:),varname(3,:),varname(4,:),varname(5,:))
 
     % reinitialize gibbs arrays (buffer for back step)
     SA(1,:) = SA(NG,:);

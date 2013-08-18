@@ -6,6 +6,7 @@ SWUC_model_SWRprior_2011:
    ☐ Global randoms.
      Use the file randn.mat as a global variable "randoms" together with a global index "rand_ind" to ensure Matlab and Python always have the same random variables. This should allow me to use the debugger to step through each function call and see where things diverge.
      The Matlab and Python code have both been updated to use these global variables and now I just need to do the checking.
+     ☐ Check the Matlab/Python versions of gibbs1_swr and ig2 to make sure that when I take more than just one item from randoms, it is taking the same items
 
 
 Julia:

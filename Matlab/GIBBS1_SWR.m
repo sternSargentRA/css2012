@@ -16,8 +16,8 @@ SM = zeros(2,1); % backward update for conditional mean of state vector
 PM = zeros(2,2); % backward update for projection matrix
 P = zeros(2,2); % backward update for conditional variance matrix
 
-wa = reshape(randoms(rand_ind:rand_ind + 2 * T), 2, T);
-rand_ind = rand_ind + 2 * T;
+wa = reshape(randoms(rand_ind:rand_ind + (2 * T) - 1), 2, T);
+rand_ind = rand_ind + (2 * T);
 
 % wa = randn(2,T); % draws for state innovations
 
@@ -32,3 +32,5 @@ for i = 1:T-1,
    SM = S0(:,T-i) + PM*(SA(:,T-i+1) - A*S0(:,T-i));
    SA(:,T-i) = SM + real(sqrtm(P))*wa(:,T-i);
 end
+
+1;
