@@ -7,11 +7,13 @@ from numpy import matrix, ones, zeros
 from numpy.linalg import inv
 from scipy.linalg import sqrtm
 from scipy.io import savemat
+from numbapro import autojit
 
 if sys.version_info[0] >= 3:
     xrange = range
 
 start_time = time()
+
 
 ##---------------------------- Function definitions
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
@@ -122,10 +124,8 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
     u = np.random.rand(1)
     if u <= accept:
         h = htrial
-        R = 0
     else:
         h = hlast
-        R = 1
 
     return h
 
