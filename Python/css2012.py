@@ -50,7 +50,7 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
         h = hlast
         R = 1
 
-    return h, R
+    return h
 
 
 def svmh0(hlead, alpha, delta, sv, mu0, ss0):
@@ -83,7 +83,7 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     # draw from lognormal (accept = 1, since there is no observation)
     h = np.exp(mu + (ss ** .5) * np.random.randn(1))
 
-    return h, mu, ss
+    return h
 
 
 def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
@@ -125,7 +125,7 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
         h = hlast
         R = 1
 
-    return h, R
+    return h
 
 
 def rmean(x):
@@ -225,7 +225,7 @@ def ig2(v0, d0, x):
     z = np.random.randn(v1)
     x = np.inner(z, z)
     v = d1 / x
-    return v, v1, d1
+    return v
 
 
 def gibbs1_swr(S0, P0, P1, T):
@@ -369,42 +369,41 @@ for i_f in xrange(1):
 
         # log R|sv,y and log Q|sv, y
         RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
-                           np.log(R0), ss0)[0]
+                           np.log(R0), ss0)
         QA[0, i_g] = svmh0(QA[1, i_g-1], 0, 1, SV[i_g-1, 1],
-                           np.log(Q0), ss0)[0]
+                           np.log(Q0), ss0)
         for i in range(1, t):
             RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])[0]
+                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])
 
-            # TODO: Bug here when
             QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])[0]
+                              SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])
 
         # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
         # TODO: Also check that QA/RA.shape[0] == t+1
         RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
-                            RA[-1, i_g-1])[0]
+                            RA[-1, i_g-1])
 
         QA[-1, i_g] = svmhT(QA[-2, i_g], 0, 1, SV[i_g-1, 1], f[-1, 1],
-                            QA[-1, i_g-1])[0]
+                            QA[-1, i_g-1])
 
         # svr
         lr = np.log(RA[:, i_g])
         er = lr[1:] - lr[:-1]  # random walk
-        v = ig2(v0, dr0, er)[0]
+        v = ig2(v0, dr0, er)
         SV[i_g, 0] = sqrt(v)
 
         #svq
         lq = np.log(QA[:, i_g])
         eq = lq[1:] - lq[:-1]  # random walk
-        v = ig2(v0, dr0, eq)[0]
+        v = ig2(v0, dr0, eq)
         SV[i_g, 1] = sqrt(v)
 
         # measurement error
         em = YS - SA[i_g, 0, :]
-        v1 = ig2(vm0, dm0, em[:60])[0]  # measurement error 1791-1850 (Lindert-Williamson)
-        v2 = ig2(vm0, dm0, em[60:124])[0]  # measurement error 1851-1914 (Bowley)
-        v3 = ig2(vm0, dm0, em[124:157])[0]  # measurement error 1915-1947 (Labor Department)
+        v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
+        v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
+        v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
         SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
         SMT[:60] = SMV[i_g, 0]
         SMT[60:124] = SMV[i_g, 1]
