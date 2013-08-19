@@ -16,8 +16,9 @@ if sys.version_info[0] >= 3:
 start_time = time()
 ##---------------------------- Main Course
 
-NG = 5000  # number of draws from Gibbs sampler per data file
 NF = 20
+NG = 50  # number of draws from Gibbs sampler per data file
+NGm = NG - 1
 
 ##----- Load data
 # Load military data
@@ -51,6 +52,7 @@ y = np.concatenate([YS_1791_1850,
                    YS_1915_1947,
                    YS_1948_2011])
 t = y.shape[0]
+tm1 = t - 1
 date = np.arange(t) + 1791
 data = pd.DataFrame(y, index=date)
 data.to_csv('all_data.csv')
@@ -80,7 +82,7 @@ dr0 = v0 * (svr0 ** 2.)
 dq0 = v0 * (svq0 ** 2.)
 
 ##----- prior variance for log R0, log Q0 (ballpark numbers)
-ss0 = 5
+ss0 = 5.
 
 ##----- prior for measurement-error variance \sigma_m (prior is same for both
 # periods)
@@ -114,7 +116,7 @@ SMV[0, :] = sm0
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
 
-        S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
+        S0, P0, P1 = kf_SWR(YS, QA[:, i_g-1], RA[:, i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
@@ -134,21 +136,21 @@ for i_f in xrange(NF):
 
         # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
         # TODO: Also check that QA/RA.shape[0] == t+1
-        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
-                            RA[-1, i_g-1])
+        RA[t, i_g] = svmhT(RA[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
+                           RA[tm1, i_g-1])
 
-        QA[-1, i_g] = svmhT(QA[-2, i_g], 0, 1, SV[i_g-1, 1], f[-1, 1],
-                            QA[-1, i_g-1])
+        QA[t, i_g] = svmhT(QA[tm1, i_g], 0, 1, SV[i_g-1, 1], f[tm1, 1],
+                           QA[tm1, i_g-1])
 
         # svr
         lr = np.log(RA[:, i_g])
-        er = lr[1:] - lr[:-1]  # random walk
+        er = lr[1:] - lr[:t]  # random walk
         v = ig2(v0, dr0, er)
         SV[i_g, 0] = sqrt(v)
 
         #svq
         lq = np.log(QA[:, i_g])
-        eq = lq[1:] - lq[:-1]  # random walk
+        eq = lq[1:] - lq[:t]  # random walk
         v = ig2(v0, dr0, eq)
         SV[i_g, 1] = sqrt(v)
 
@@ -162,7 +164,9 @@ for i_f in xrange(NF):
         SMT[60:124] = SMV[i_g, 1]
         SMT[124:157] = SMV[i_g, 2]
 
-        if i_g % 100 == 0:
+        #####################################
+
+        if i_g % 10 == 0:
             e_time = time() - start_time
             print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
 
@@ -172,11 +176,11 @@ for i_f in xrange(NF):
         num = str(i_f)
     f_name = './output/swuc_swrp_' + num + '.mat'
 
-    SD = SA[0:-1:10, :, :]
-    RD = RA[:, 0:-1:10]
-    QD = QA[:, 0:-1:10]
-    VD = SV[0:-1:10, :]
-    MD = SMV[0:-1:10, :]
+    SD = SA[0:NG-1:10, :, :]
+    RD = RA[:, 0:NG-1:10]
+    QD = QA[:, 0:NG-1:10]
+    VD = SV[0:NG-1:10, :]
+    MD = SMV[0:NG-1:10, :]
 
     data = {'SD': SD,
             'QD': QD,
@@ -187,12 +191,8 @@ for i_f in xrange(NF):
     savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
-    SA[0, :] = SA[-1, :]
-    QA[:, 0] = QA[:, -1]
-    RA[:, 0] = RA[:, -1]
-    SV[0, :] = SV[-1, :]
-    SMV[0, :] = SMV[-1, :]
-
-
-
-# RA, S0, P0, P1 = data['RA'], data['SO'], data['P0'], data['P1']
+    SA[0, :] = SA[NGm, :]
+    QA[:, 0] = QA[:, NGm]
+    RA[:, 0] = RA[:, NGm]
+    SV[0, :] = SV[NGm, :]
+    SMV[0, :] = SMV[NGm, :]
