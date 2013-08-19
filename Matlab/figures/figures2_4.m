@@ -2,29 +2,29 @@
 clear
 
 % Add enclosing folder to path so functions defined there are accessible here
-addpath("../")
+addpath('../')
 
 % catalog of data files
-DFILE(1,:) = ['../OctaveResults/swuc_swrp_01.mat'];
-DFILE(2,:) = ['../OctaveResults/swuc_swrp_02.mat'];
-DFILE(3,:) = ['../OctaveResults/swuc_swrp_03.mat'];
-DFILE(4,:) = ['../OctaveResults/swuc_swrp_04.mat'];
-DFILE(5,:) = ['../OctaveResults/swuc_swrp_05.mat'];
-DFILE(6,:) = ['../OctaveResults/swuc_swrp_06.mat'];
-DFILE(7,:) = ['../OctaveResults/swuc_swrp_07.mat'];
-DFILE(8,:) = ['../OctaveResults/swuc_swrp_08.mat'];
-DFILE(9,:) = ['../OctaveResults/swuc_swrp_09.mat'];
-DFILE(10,:) = ['../OctaveResults/swuc_swrp_10.mat'];
-DFILE(11,:) = ['../OctaveResults/swuc_swrp_11.mat'];
-DFILE(12,:) = ['../OctaveResults/swuc_swrp_12.mat'];
-DFILE(13,:) = ['../OctaveResults/swuc_swrp_13.mat'];
-DFILE(14,:) = ['../OctaveResults/swuc_swrp_14.mat'];
-DFILE(15,:) = ['../OctaveResults/swuc_swrp_15.mat'];
-DFILE(16,:) = ['../OctaveResults/swuc_swrp_16.mat'];
-DFILE(17,:) = ['../OctaveResults/swuc_swrp_17.mat'];
-DFILE(18,:) = ['../OctaveResults/swuc_swrp_18.mat'];
-DFILE(19,:) = ['../OctaveResults/swuc_swrp_19.mat'];
-DFILE(20,:) = ['../OctaveResults/swuc_swrp_20.mat'];
+DFILE(1,:) = ['../SimData/swuc_swrp_01.mat'];
+DFILE(2,:) = ['../SimData/swuc_swrp_02.mat'];
+DFILE(3,:) = ['../SimData/swuc_swrp_03.mat'];
+DFILE(4,:) = ['../SimData/swuc_swrp_04.mat'];
+DFILE(5,:) = ['../SimData/swuc_swrp_05.mat'];
+DFILE(6,:) = ['../SimData/swuc_swrp_06.mat'];
+DFILE(7,:) = ['../SimData/swuc_swrp_07.mat'];
+DFILE(8,:) = ['../SimData/swuc_swrp_08.mat'];
+DFILE(9,:) = ['../SimData/swuc_swrp_09.mat'];
+DFILE(10,:) = ['../SimData/swuc_swrp_10.mat'];
+DFILE(11,:) = ['../SimData/swuc_swrp_11.mat'];
+DFILE(12,:) = ['../SimData/swuc_swrp_12.mat'];
+DFILE(13,:) = ['../SimData/swuc_swrp_13.mat'];
+DFILE(14,:) = ['../SimData/swuc_swrp_14.mat'];
+DFILE(15,:) = ['../SimData/swuc_swrp_15.mat'];
+DFILE(16,:) = ['../SimData/swuc_swrp_16.mat'];
+DFILE(17,:) = ['../SimData/swuc_swrp_17.mat'];
+DFILE(18,:) = ['../SimData/swuc_swrp_18.mat'];
+DFILE(19,:) = ['../SimData/swuc_swrp_19.mat'];
+DFILE(20,:) = ['../SimData/swuc_swrp_20.mat'];
 NF = size(DFILE,1);
 NB = 11;
 
