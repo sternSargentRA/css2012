@@ -166,6 +166,7 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     # constant parameters
     A = np.array([[0, 1], [0, 1]])
     C = np.array([1, 0])
+    C2 = np.atleast_2d(C)
 
     # date 1
     #CHECKME: Check the rest of the function
@@ -173,7 +174,7 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     D = np.asarray(Sm[0])
     V10 = np.asarray(np.dot(C.dot(PI), C.T) + D.dot(D.T))  # V(y(t|t-1)
     S0[:, 0] = SI + PI.dot(C.T) * (Y[0] - y10) / V10  # E(S(t|t))
-    P0[:, :, 0] = PI - (PI * matrix(C).T * C * PI) / V10  # V(S(t|t))
+    P0[:, :, 0] = PI - np.dot(PI.dot(C2.T), np.dot(C2, PI)) / V10  # V(S(t|t))
     S1[:, 0] = A.dot(S0[:, 0])  # E(S(t+1|t)
     B = np.array([[R[1] ** .5, Q[1] ** .5],
                   [0, Q[1] ** .5]])
@@ -185,7 +186,11 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
         D = np.asarray(Sm[i])
         V10 = np.dot(C.dot(P1[:, :, i-1]), C.T) + D.dot(D.T)  # V(y(t|t-1)
         S0[:, i] = S1[:, i-1] + P1[:, :, i-1].dot(C.T) * (Y[i] - y10) / V10  # E(S(t|t))
-        P0[:, :, i] = P1[:, :, i-1] - (P1[:, :, i-1] * matrix(C).T * C * P1[:, :, i-1]) / V10  # V(S(t|t))
+
+        # V(S(t|t))
+        P0[:, :, i] = P1[:, :, i-1] - (np.dot(P1[:, :, i-1].dot(C2.T),
+                                       np.dot(C2, P1[:, :, i-1])) / V10)
+
         S1[:, i] = A.dot(S0[:, i])  # E(S(t+1|t))
         B = np.array([[R[i+1] ** .5, Q[i+1] ** .5],
                       [0, Q[i+1] ** .5]])
