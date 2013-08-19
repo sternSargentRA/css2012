@@ -1,6 +1,6 @@
 # TODO: I'd love to use Gadfly, but I can't figure out the histogram plot...
 # using Gadfly
-using Winston
+# using Winston
 using DataFrames
 using MAT
 
@@ -27,7 +27,7 @@ end
 
 # standard deviation of innovations to log volatilities
 # load VA
-VD = load_item("swuc_swrp_$NB.mat", "VD")
+VD = load_item("./SimData/swuc_swrp_$NB.mat", "VD")
 
 P, N = size(VD)
 
@@ -36,9 +36,9 @@ VA[:, 1:P] = VD'
 for i = NB+1:NF,
     j = i - NB + 1
     if i < 10
-        f_name = "swuc_swrp_0$i.mat"
+        f_name = "./SimData/swuc_swrp_0$i.mat"
     else
-        f_name = "swuc_swrp_$i.mat"
+        f_name = "./SimData/swuc_swrp_$i.mat"
     end
     VD = load_item(f_name, "VD")
     VA[:,(j-1)*P+1:j*P] = VD'
@@ -52,16 +52,16 @@ dd = ones(NMC,1) # indicator that equals 1 if the bound is satisfied
 
 # standard deviation of pre-1948 measurement errors
 # load MA
-MD = load_item("swuc_swrp_$NB.mat", "MD")
+MD = load_item("./SimData/swuc_swrp_$NB.mat", "MD")
 P, N = size(MD)
 MA = zeros(N, (NF-NB+1)*P)
 MA[:, 1:P] = MD'
 for i = NB+1:NF
     j = i - NB + 1
     if i < 10
-        f_name = "swuc_swrp_0$i.mat"
+        f_name = "./SimData/swuc_swrp_0$i.mat"
     else
-        f_name = "swuc_swrp_$i.mat"
+        f_name = "./SimData/swuc_swrp_$i.mat"
     end
     MD = load_item(f_name, "MD")
     MA[:,(j-1)*P+1:j*P] = MD'
@@ -90,16 +90,16 @@ Xm2, Nm2 = hist(MA[2, :][:], Xp2)
 Xm3, Nm3 = hist(MA[3, :][:], Xp2)
 
 ##---------------------------- Generate figures
-p1 = FramedPlot()
-setattr(p1, "xlabel", "\\sigma_r, \\sigma_q")
-l1 = Curve(Xp1[2:end], Np1/sum(Np1), "type", "dash", "color", "blue")
-setattr(l1, "label", "Prior")
+# p1 = FramedPlot()
+# setattr(p1, "xlabel", "\\sigma_r, \\sigma_q")
+# l1 = Curve(Xp1[2:end], Np1/sum(Np1), "type", "dash", "color", "blue")
+# setattr(l1, "label", "Prior")
 
-l2 = Curve(Xt[2:end], Nt/sum(Nt), "color", "blue"); setattr(l2, "label", "Posterior \\sigma_r")
-l3 = Curve(Xs[2:end], Ns/sum(Ns), "color", "red"); setattr(l3, "label", "Posterior \\sigma_q")
-leg = Legend( .5, .8, {l1, l2, l3} )
-add(p1, l1, l2, l3, leg)
-Winston.display(p1)
+# l2 = Curve(Xt[2:end], Nt/sum(Nt), "color", "blue"); setattr(l2, "label", "Posterior \\sigma_r")
+# l3 = Curve(Xs[2:end], Ns/sum(Ns), "color", "red"); setattr(l3, "label", "Posterior \\sigma_q")
+# leg = Legend( .5, .8, {l1, l2, l3} )
+# add(p1, l1, l2, l3, leg)
+# Winston.display(p1)
 # add(p, Curve(Xp1, Np1/sum(Np1), "--b", "label", "Prior"))
 # add(p, Curve(Xt, Nt/sum(Nt), "-b", "label", "Posterior \\sigma_r"))
 # add(p, Curve(Xs, Ns/sum(Ns), "-r", "label", "Posterior \\sigma_q"))
