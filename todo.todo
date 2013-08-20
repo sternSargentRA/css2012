@@ -16,3 +16,5 @@ Julia:
      ✔ svmhT @done (13-08-15 23:57)
    ☐ Replicate figures
    ☐ Parallelize it.
+General:
+ ☐ Come up with better names for computeSV and updateRQ functions (names that actually describe what those functions do, kinda like the measurement_error function).
