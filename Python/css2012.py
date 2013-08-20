@@ -1,21 +1,31 @@
+import os
 import sys
 from time import time
-from math import sqrt, log, exp
+from math import sqrt
 import pandas as pd
 import numpy as np
-from numpy import matrix, ones, zeros
-from numpy.linalg import inv
-from scipy.linalg import sqrtm
+from numpy import ones, zeros
 from scipy.io import savemat
-from numbapro import autojit
 from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
 
 if sys.version_info[0] >= 3:
     xrange = range
 
 start_time = time()
-##---------------------------- Main Course
 
+##---------------------------- Run Control parameters
+# Folder for saving the data. Relative to this folder. Exclude trailing slash
+output_dir = "SimData"
+
+# Base file name to append numbers to. Leave {num} in there somewhere!
+file_name = "swuc_swrp_{num}.mat"
+
+skip = 10  # number of Gibbs draws to do before printing status
+
+# Other params needed below, but not to be modified.
+save_path = output_dir + os.path.sep + file_name
+
+##---------------------------- Main Course
 NF = 20
 NG = 50  # number of draws from Gibbs sampler per data file
 NGm = NG - 1
@@ -160,9 +170,9 @@ for i_f in xrange(NF):
         SMT[60:124] = SMV[i_g, 1]
         SMT[124:157] = SMV[i_g, 2]
 
-        #####################################
+        ##################################### Done breaking it up!
 
-        if i_g % 10 == 0:
+        if i_g % skip == 0:
             e_time = time() - start_time
             print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
 
@@ -170,7 +180,7 @@ for i_f in xrange(NF):
         num = '0' + str(i_f)
     else:
         num = str(i_f)
-    f_name = './output/swuc_swrp_' + num + '.mat'
+    f_name = save_path.format(num=num)
 
     SD = SA[0:NG-1:10, :, :]
     RD = RA[:, 0:NG-1:10]
