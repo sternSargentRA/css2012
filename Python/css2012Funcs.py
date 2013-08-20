@@ -218,6 +218,7 @@ def ig2(v0, d0, x):
     if isinstance(x, np.ndarray):
         T = x.size if x.ndim == 1 else x.shape[0]
     elif isinstance(x, float) or isinstance(x, int):
+        print("HERE! " * 15)
         T = 1
     v1 = v0 + T
     d1 = d0 + np.inner(x, x)

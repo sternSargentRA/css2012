@@ -1,3 +1,4 @@
+import os
 import sys
 from time import time
 from math import sqrt, log, exp
@@ -8,16 +9,28 @@ from numpy.linalg import inv
 from scipy.linalg import sqrtm
 from scipy.io import savemat
 # from numbapro import autojit
-from css2012CythonFuncs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
+from css2012CythonFuncs import (kf_SWR, gibbs1_swr, updateRQ, computeSV,
+                                measurement_error)
 
 if sys.version_info[0] >= 3:
     xrange = range
 
-start_time = time()
+##---------------------------- Run Control parameters
+# Folder for saving the data. Relative to this folder. Exclude trailing slash
+output_dir = "SimData"
+
+# Base file name to append numbers to. Leave {num} in there somewhere!
+file_name = "swuc_swrp_{num}.mat"
+
+skip = 100  # number of Gibbs draws to do before printing status
+
+# Other params needed below, but not to be modified.
+save_path = output_dir + os.path.sep + file_name
 ##---------------------------- Main Course
 
-NG = 5000  # number of draws from Gibbs sampler per data file
 NF = 20
+NG = 5000  # number of draws from Gibbs sampler per data file
+NGm = NG - 1
 
 ##----- Load data
 # Load military data
@@ -51,6 +64,7 @@ y = np.concatenate([YS_1791_1850,
                    YS_1915_1947,
                    YS_1948_2011])
 t = y.shape[0]
+tm1 = t - 1
 date = np.arange(t) + 1791
 data = pd.DataFrame(y, index=date)
 data.to_csv('all_data.csv')
@@ -111,71 +125,48 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 ##----- begin MCMC
+start_time = time()
+iter_time = time()
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
-        S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
+
+        S0, P0, P1 = kf_SWR(YS, QA[:, i_g-1], RA[:, i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
-        f = np.diff(np.column_stack([SI, SA[i_g, :, :]])).T
+        f = np.ascontiguousarray(np.diff(np.column_stack([SI,
+                                                          SA[i_g, :, :]])).T)
 
-        # log R|sv,y and log Q|sv, y
-        RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
-                           np.log(R0), ss0)
-        QA[0, i_g] = svmh0(QA[1, i_g-1], 0, 1, SV[i_g-1, 1],
-                           np.log(Q0), ss0)
-        for i in range(1, t):
-            RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])
+        updateRQ(i_g, RA, SV, R0, ss0, f, t, tm1)  # update RA inplace
+        updateRQ(i_g, QA, SV, Q0, ss0, f, t, tm1)  # update QA inplace
 
-            QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])
-
-        # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
-        # TODO: Also check that QA/RA.shape[0] == t+1
-        RA[-1, i_g] = svmhT(RA[-2, i_g], 0, 1, SV[i_g-1, 0], f[-1, 0],
-                            RA[-1, i_g-1])
-
-        QA[-1, i_g] = svmhT(QA[-2, i_g], 0, 1, SV[i_g-1, 1], f[-1, 1],
-                            QA[-1, i_g-1])
-
-        # svr
-        lr = np.log(RA[:, i_g])
-        er = lr[1:] - lr[:-1]  # random walk
-        v = ig2(v0, dr0, er)
-        SV[i_g, 0] = sqrt(v)
-
-        #svq
-        lq = np.log(QA[:, i_g])
-        eq = lq[1:] - lq[:-1]  # random walk
-        v = ig2(v0, dr0, eq)
-        SV[i_g, 1] = sqrt(v)
+        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0, t)  # svr
+        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0, t)  # svq
 
         # measurement error
-        em = YS - SA[i_g, 0, :]
-        v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
-        v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
-        v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
-        SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
-        SMT[:60] = SMV[i_g, 0]
-        SMT[60:124] = SMV[i_g, 1]
-        SMT[124:157] = SMV[i_g, 2]
+        measurement_error(i_g, YS, SA, vm0, dm0, SMV, SMT)
 
-        if i_g % 100 == 0:
-            e_time = time() - start_time
-            print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
+        ##################################### Done breaking it up!
+
+        if i_g % skip == 0:
+            tot_time = time() - start_time
+            i_time = time() - iter_time
+            msg = "Iteration ({0}, {1}). Total time: {2:.5f}. "
+            msg += "Time since last print: {3:.5f}"
+            print(msg.format(i_f, i_g, tot_time, i_time))
+            iter_time = time()
 
     if i_f < 10:
         num = '0' + str(i_f)
     else:
         num = str(i_f)
-    f_name = './output/swuc_swrp_' + num + '.mat'
+    f_name = save_path.format(num=num)
 
-    SD = SA[0:-1:10, :, :]
-    RD = RA[:, 0:-1:10]
-    QD = QA[:, 0:-1:10]
-    VD = SV[0:-1:10, :]
-    MD = SMV[0:-1:10, :]
+    SD = SA[0:NG-1:10, :, :]
+    RD = RA[:, 0:NG-1:10]
+    QD = QA[:, 0:NG-1:10]
+    VD = SV[0:NG-1:10, :]
+    MD = SMV[0:NG-1:10, :]
 
     data = {'SD': SD,
             'QD': QD,
@@ -183,15 +174,13 @@ for i_f in xrange(NF):
             'VD': VD,
             'MD': MD}
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
-    SA[0, :] = SA[-1, :]
-    QA[:, 0] = QA[:, -1]
-    RA[:, 0] = RA[:, -1]
-    SV[0, :] = SV[-1, :]
-    SMV[0, :] = SMV[-1, :]
-
-
-
-# RA, S0, P0, P1 = data['RA'], data['SO'], data['P0'], data['P1']
+    SA[0, :] = SA[NGm, :]
+    QA[:, 0] = QA[:, NGm]
+    RA[:, 0] = RA[:, NGm]
+    SV[0, :] = SV[NGm, :]
+    SMV[0, :] = SMV[NGm, :]
