@@ -246,13 +246,13 @@ def gibbs1_swr(S0, P0, P1, T):
 
     # Backward recursions and sampling
     # Terminal state
-    SA[:, -1] = S0[:, -1] + np.real(sqrtm(P0[:, :, -1])).dot(wa[:, -1])
+    SA[:, T-1] = S0[:, T-1] + np.real(sqrtm(P0[:, :, T-1])).dot(wa[:, T-1])
 
     # iterating back through the rest of the sample
-    for i in range(2, T + 1):
-        PM = np.dot(P0[:, :, -i].dot(A.T), inv(P1[:, :, -i]))
-        P = P0[:, :, -i] - np.dot(PM.dot(A), P0[:, :, -i])
-        SM = S0[:, -i] + PM.dot(SA[:, -i+1] - A.dot(S0[:, -i]))
-        SA[:, -i] = SM + np.real(sqrtm(P)).dot(wa[:, -i])
+    for i in range(1, T):
+        PM = np.dot(P0[:, :, T-i].dot(A.T), inv(P1[:, :, T-i]))
+        P = P0[:, :, T-i] - np.dot(PM.dot(A), P0[:, :, T-i])
+        SM = S0[:, T-i-1] + PM.dot(SA[:, T-i] - A.dot(S0[:, T-i-1]))
+        SA[:, T-i-1] = SM + np.real(sqrtm(P)).dot(wa[:, T-i-1])
 
     return SA
