@@ -10,9 +10,6 @@ from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
 
 if sys.version_info[0] >= 3:
     xrange = range
-
-start_time = time()
-
 ##---------------------------- Run Control parameters
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
 output_dir = "SimData"
@@ -20,14 +17,14 @@ output_dir = "SimData"
 # Base file name to append numbers to. Leave {num} in there somewhere!
 file_name = "swuc_swrp_{num}.mat"
 
-skip = 10  # number of Gibbs draws to do before printing status
+skip = 100  # number of Gibbs draws to do before printing status
 
 # Other params needed below, but not to be modified.
 save_path = output_dir + os.path.sep + file_name
 
 ##---------------------------- Main Course
 NF = 20
-NG = 50  # number of draws from Gibbs sampler per data file
+NG = 5000  # number of draws from Gibbs sampler per data file
 NGm = NG - 1
 
 ##----- Load data
@@ -123,6 +120,7 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 
+##----- Define MCMC funcs
 def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
     RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
                        np.log(RQ0), ss0)
@@ -144,7 +142,20 @@ def computeSV(i_g, RQ, v0, dr0):
     return sqrt(v)
 
 
+def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
+    em = YS - SA[i_g, 0, :]
+    v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
+    v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
+    v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
+    SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
+    SMT[:60] = SMV[i_g, 0]
+    SMT[60:124] = SMV[i_g, 1]
+    SMT[124:157] = SMV[i_g, 2]
+
+    # Again, no returns because we modify SMV and SMT in place
+
 ##----- begin MCMC
+start_time = time()
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
 
@@ -161,14 +172,7 @@ for i_f in xrange(NF):
         SV[i_g, 1] = computeSV(i_g, QA, v0, dr0)  # svq
 
         # measurement error
-        em = YS - SA[i_g, 0, :]
-        v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
-        v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
-        v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
-        SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
-        SMT[:60] = SMV[i_g, 0]
-        SMT[60:124] = SMV[i_g, 1]
-        SMT[124:157] = SMV[i_g, 2]
+        measurement_error(YS, SA, vm0, dm0, SMV, SMT)
 
         ##################################### Done breaking it up!
 
