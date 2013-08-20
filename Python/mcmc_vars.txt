@@ -2,19 +2,22 @@
 |----------+----------+-------------------+----------|
 | i_g      | updater  | int               | y        |
 | i_f      | updater  | int               | y        |
-| YS       | constant | double[:]         | y        |
 | QA       | updater  | double[:, ::1]    | y        |
 | RA       | updater  | double[:, ::1]    | y        |
 | SMT      | updater  | double[:]         | y        |
+| SA       | updater  | double[:, :, ::1] | y        |
+| SV       | updater  | double[:, ::1]    | y        |
+| SMV      | updater  | double[:, ::1]    | y        |
+
+
+| YS       | constant | double[:]         | y        |
 | SI       | constant | double[:]         | y        |
 | PI       | constant | double[:, ::1]    | y        |
 | t        | constant | int               | y        |
-| SA       | updater  | double[:, :, ::1] | y        |
 | S0       | internal | double[:, ::1]    | y        |
 | P0       | internal | double[:, :, ::1] | y        |
 | P1       | internal | double[:, :, ::1] | y        |
 | f        | internal | double[:, ::1]    | y        |
-| SV       | updater  | double[:, ::1]    | y        |
 | R0       | constant | double            | y        |
 | ss0      | constant | double            | y        |
 | Q0       | constant | double            | y        |
@@ -29,5 +32,4 @@
 | v1       | internal | double            | y        |
 | v2       | internal | double            | y        |
 | v3       | internal | double            | y        |
-| SMV      | updater  | double[:, ::1]    | y        |
 
