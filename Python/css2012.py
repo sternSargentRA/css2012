@@ -37,7 +37,7 @@ date = np.arange(t) + 1210
 
 Y0 = y[511:581]
 
-if not os.path.exists("all_data.csv"):
+if not os.path.exists("all_data.csv"):  # Don't repeat of not necessary
     YS_1948_2011 = y[738:802]
 
     # Load Lindert Williamson data

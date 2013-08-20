@@ -3,6 +3,11 @@ import numpy as np
 from random import normalvariate
 from numpy import zeros, matrix
 from scipy.linalg import inv, sqrtm
+from mpi4py import MPI
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()  # Which process we are on
+size = comm.Get_size()  # Total number of processes
 
 
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
@@ -257,3 +262,39 @@ def gibbs1_swr(S0, P0, P1, T):
         SA[:, T-i-1] = SM + np.real(sqrtm(P)).dot(wa[:, T-i-1])
 
     return SA
+
+
+def pprint(x):
+    if rank == 0:
+        print(x)
+
+
+def mpi_tuples(data):
+    """
+    This function takes the data vector or matrix and returns the send
+    counts, displacement counts, and a local displacement array to be
+    used by MPI.
+
+    TODO: this docstring.
+    """
+    # Calculate send counts and displacements for Allgatherv
+    rows = data.shape[0]
+
+    # Calculate the send counts
+    counts = np.zeros(size)
+    counts[:] = rows // size
+    counts[range(rows % size)] += 1
+    count_tuple = tuple(counts * data.shape[1]) if data.ndim == 2 \
+                                                else tuple(counts)
+
+    # Calculate the displacements
+    disps = counts.cumsum() - counts[0]
+    if (rows % size) != 0:
+        disps[-(size - rows % size):] += 1
+    disp_tuple = tuple(disps * data.shape[1]) if data.ndim == 2 \
+                                                else tuple(disps)
+
+    # append extra element so last process has an ending range
+    loc_disps = np.append(disps, [rows])
+
+    return count_tuple, disp_tuple, loc_disps
