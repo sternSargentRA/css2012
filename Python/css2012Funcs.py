@@ -1,9 +1,10 @@
 from math import log, exp
 import numpy as np
-from numpy import zeros, matrix
+from numpy import zeros
 from scipy.linalg import inv, sqrtm
+from numbapro import autojit
 
-
+@autojit
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
     """
     This function returns a draw from the posterior conditional density
@@ -43,6 +44,7 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
     return h
 
 
+@autojit
 def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     """
     This file returns a draw from the posterior conditional density
@@ -76,6 +78,7 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     return h
 
 
+@autojit
 def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
     """
     This file returns a draw from the posterior conditional density
@@ -128,6 +131,7 @@ def rmean(x):
     return rm
 
 
+@autojit
 def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     """
     This file performs the forward kalman filter recursions for the
@@ -199,6 +203,7 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     return S0, P0, P1
 
 
+@autojit
 def ig2(v0, d0, x):
     """
     This file returns posterior draw, v, from an inverse gamma with
@@ -224,6 +229,7 @@ def ig2(v0, d0, x):
     return v
 
 
+@autojit
 def gibbs1_swr(S0, P0, P1, T):
     """
     function SA = GIBBS1_SWR(S0,P0,P1,T);

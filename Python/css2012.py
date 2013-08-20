@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from numpy import ones, zeros
 from scipy.io import savemat
+from numbapro import autojit, jit, double, int_
 from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
 
 if sys.version_info[0] >= 3:
@@ -121,6 +122,7 @@ SMV[0, :] = sm0
 
 
 ##----- Define MCMC funcs
+@autojit()
 def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
     RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
                        np.log(RQ0), ss0)
@@ -135,13 +137,15 @@ def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
     # No return because we just modified RQ in place
 
 
+@jit(double(int_, double[:, ::1], double, double))
 def computeSV(i_g, RQ, v0, dr0):
-    lrq = np.log(RA[:, i_g])
+    lrq = np.log(RQ[:, i_g])
     erq = lrq[1:] - lrq[:t]  # random walk
     v = ig2(v0, dr0, erq)
     return sqrt(v)
 
 
+@autojit
 def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
     em = YS - SA[i_g, 0, :]
     v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
@@ -156,6 +160,7 @@ def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
 
 ##----- begin MCMC
 start_time = time()
+iter_time = time()
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
 
@@ -177,8 +182,12 @@ for i_f in xrange(NF):
         ##################################### Done breaking it up!
 
         if i_g % skip == 0:
-            e_time = time() - start_time
-            print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
+            tot_time = time() - start_time
+            i_time = time() - iter_time
+            msg = "Iteration ({0}, {1}). Total time: {2:.5f}. "
+            msg += "Time since last print: {3:.5f}"
+            print(msg.format(i_f, i_g, tot_time, i_time))
+            iter_time = time()
 
     if i_f < 10:
         num = '0' + str(i_f)
