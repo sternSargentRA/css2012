@@ -1,7 +1,7 @@
 from math import log, exp
 import numpy as np
 from random import normalvariate
-from numpy import zeros, matrix
+from numpy import zeros
 from scipy.linalg import inv, sqrtm
 from mpi4py import MPI
 
@@ -264,9 +264,16 @@ def gibbs1_swr(S0, P0, P1, T):
     return SA
 
 
-def pprint(x):
+def rprint(msg):
+    "Print the message on the root process"
     if rank == 0:
-        print(x)
+        print(msg)
+
+
+def pprint(msg):
+    "Print the msg on each a process, but identify the process first"
+    proc_msg = "Process %i: " % rank
+    print(proc_msg + msg)
 
 
 def mpi_tuples(data):
