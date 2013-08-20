@@ -203,6 +203,8 @@ for i_f in xrange(NF):
             'VD': VD,
             'MD': MD}
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
