@@ -4,8 +4,21 @@ tic()
 using DataFrames
 using MAT
 
+##---------------------------- Run Control parameters
+# Folder for saving the data. Relative to this folder. Exclude trailing slash
+output_dir = "SimData"
+
+# Base file name to append numbers to. Leave $(num) and (:stuff) in there!
+file_name = (:"swuc_swrp_$(num).mat")
+
+skip = 100  # number of Gibbs draws to do before printing
+
 NG = 5000 # number of draws from Gibbs sampler per data file
-NF = 20
+NF = 20  # Number of times to run the simulation
+
+if !isdir(output_dir)
+    mkdir("./$output_dir")
+end
 
 ##---------------------------- Function definitions
 include("cssfuncs.jl")  # Just include these functions from the other file.
@@ -67,6 +80,7 @@ SMV[1, :] = sm0
 
 # msqeeze(A) = squeeze(A, find(([size(A)..]. ==1)))
 
+iter_time = time()
 for file = 1:NF
     for iter = 2:NG
         S0, P0, P1 = kf_SWR(YS, QA[:, iter-1], RA[:, iter-1], SMT, SI, PI, T)
@@ -74,44 +88,21 @@ for file = 1:NF
 
         # stochastic volatilities
         f = diff([SI squeeze(SA[iter,:,:], 1)]') # SW state innovations
-        # log R|sv,y
-        RA[1,iter] = svmh0(RA[2,iter-1],0,1,SV[iter-1,1],log(R0),ss0)[1][1]
-        for t = 2:T
-            RA[t,iter] = svmh(RA[t+1,iter-1],RA[t-1,iter],0,1,SV[iter-1,1],f[t-1,1],RA[t,iter-1])[1][1]
-        end
-        RA[T+1,iter] = svmhT(RA[T,iter],0,1,SV[iter-1,1],f[T,1],RA[T+1,iter-1])[1][1]
 
-        # log Q|sv,y
-        QA[1,iter] = svmh0(QA[2,iter-1],0,1,SV[iter-1,2],log(Q0),ss0)[1][1]
-        for t = 2:T
-            QA[t,iter] = svmh(QA[t+1,iter-1],QA[t-1,iter],0,1,SV[iter-1,2],f[t-1,2],QA[t,iter-1])[1][1]
-        end
-        QA[T+1,iter] = svmhT(QA[T,iter],0,1,SV[iter-1,2],f[T,2],QA[T+1,iter-1])[1][1]
+        updateRQ(iter, RA, SV, R0, ss0, f, T)   # update RA inplace
+        updateRQ(iter, QA, SV, R0, ss0, f, T)   # update QA inplace
 
-        # svr
-        lr = log(RA[:,iter])
-        er = lr[2:T+1,1] - lr[1:T,1]  # random walk
-        v = ig2(v0,dr0,er)[1][1]
-        SV[iter,1] = v^.5
-
-        # svq
-        lq = log(QA[:,iter])
-        eq = lq[2:T+1,1] - lq[1:T,1]  # random walk
-        v = ig2(v0,dq0,eq)[1][1]
-        SV[iter,2] = v^.5
+        SV[iter,1] = computeSV(iter, RA, v0, dr0)  # svr
+        SV[iter,2] = computeSV(iter, QA, v0, dr0)  # svr
 
         # measurement error
-        em = YS - squeeze(SA[iter,1,:], 2)
-        v1 = ig2(vm0,dm0,em[1,1:60]')[1][1] # measurement error 1791-1850 (Lindert-Williamson)
-        v2 = ig2(vm0,dm0,em[1,61:124]')[1][1] # measurement error 1851-1914 (Bowley)
-        v3 = ig2(vm0,dm0,em[1,125:157]')[1][1] # measurement error 1915-1947 (Labor Department)
-        SMV[iter,:] = [v1 v2 v3].^.5
-        SMT[1:60,1] = SMV[iter,1]*ones(60,1)
-        SMT[61:124,1] = SMV[iter,2]*ones(64,1)
-        SMT[125:157,1] = SMV[iter,3]*ones(33,1)
+        measurement_error(iter, YS, SA, vm0, dm0, SMV, SMT)
 
-        if mod(iter, 100) == 0
-            println("Iteration ($file, $iter)")
+        if mod(iter, skip) == 0
+            msg = "Iteration ($file, $iter). Time for last $skip iterations:"
+            msg = "$msg $(time() - iter_time)"
+            println(msg)
+            iter_time = time()
         end
     end
 
@@ -123,14 +114,11 @@ for file = 1:NF
     VD = SV[1:10:NG, :]
     MD = SMV[1:10:NG, :]
 
-    if file < 10
-        f_name = "swuc_swrp_0$file.mat"
-    else
-        f_name = "swuc_swrp_$file.mat"
-    end
+    num = file < 10 ? string("0", file) : file
+    save_path = joinpath(pwd(), output_dir, eval(file_name))
 
-    matwrite(f_name, {"SD" => SD, "QD" => QD, "RD" => RD, "VD" => VD,
-                      "MD" => MD})
+    matwrite(save_path, {"SD" => SD, "QD" => QD, "RD" => RD, "VD" => VD,
+                         "MD" => MD})
 
     # reinitialize gibbs arrays (buffer for back step)
     SA[1,:] = SA[NG,:]
