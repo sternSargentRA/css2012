@@ -156,6 +156,7 @@ def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
 
 ##----- begin MCMC
 start_time = time()
+iter_time = time()
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
 
@@ -177,8 +178,12 @@ for i_f in xrange(NF):
         ##################################### Done breaking it up!
 
         if i_g % skip == 0:
-            e_time = time() - start_time
-            print("Iteration (%i, %i). Elapsed time: %.5f" % (i_f, i_g, e_time))
+            tot_time = time() - start_time
+            i_time = time() - iter_time
+            msg = "Iteration ({0}, {1}). Total time: {2:.5f}. "
+            msg += "Time since last print: {3:.5f}"
+            print(msg.format(i_f, i_g, tot_time, i_time))
+            iter_time = time()
 
     if i_f < 10:
         num = '0' + str(i_f)

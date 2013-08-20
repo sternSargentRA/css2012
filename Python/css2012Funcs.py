@@ -1,5 +1,6 @@
 from math import log, exp
 import numpy as np
+from random import normalvariate
 from numpy import zeros, matrix
 from scipy.linalg import inv, sqrtm
 
@@ -23,11 +24,11 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
-    mu = alpha + delta * np.log(hlag)
-    ss = sv ** 2.
+    mu = alpha + delta * log(hlag)
+    ss = sv * sv
 
     # candidate draw from lognormal
-    htrial = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    htrial = exp(mu + (ss ** .5) * normalvariate(0, 1))
 
     # acceptance probability
     lp1 = -0.5 * log(htrial) - (yt ** 2) / (2 * htrial)
@@ -64,14 +65,14 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
-    ssv = sv ** 2
-    ss = ss0 * ssv / (ssv + (delta ** 2) * ss0)
-    mu = ss * (mu0 / ss0 + delta * (np.log(hlead) - alpha) / ssv)
+    ssv = sv * sv
+    ss = ss0 * ssv / (ssv + (delta * delta) * ss0)
+    mu = ss * (mu0 / ss0 + delta * (log(hlead) - alpha) / ssv)
 
     # import pdb; pdb.set_trace()
 
     # draw from lognormal (accept = 1, since there is no observation)
-    h = np.exp(mu + (ss ** .5) * np.random.randn(1))
+    h = exp(mu + (ss ** .5) * normalvariate(0, 1))
 
     return h
 
@@ -96,16 +97,16 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
-    mu = alpha*(1-delta) + delta*(np.log(hlead)+np.log(hlag)) / (1+delta**2)
-    ss = (sv**2) / (1+delta**2)
+    mu = alpha*(1-delta) + delta*(log(hlead)+log(hlag)) / (1+delta*delta)
+    ss = (sv*sv) / (1 + delta*delta)
 
     # candidate draw from lognormal
-    htrial = np.exp(mu + (ss**.5) * np.random.randn(1))
+    htrial = exp(mu + (ss**.5) * normalvariate(0, 1))
 
     # acceptance probability
-    lp1 = -0.5 * np.log(htrial) - (yt**2) / (2 * htrial)
-    lp0 = -0.5 * np.log(hlast) - (yt**2) / (2 * hlast)
-    accept = min(1, np.exp(lp1 - lp0))
+    lp1 = -0.5 * log(htrial) - (yt*yt) / (2 * htrial)
+    lp0 = -0.5 * log(hlast) - (yt*yt) / (2 * hlast)
+    accept = min(1, exp(lp1 - lp0))
 
     u = np.random.rand(1)
     if u <= accept:
@@ -164,15 +165,15 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     P1 = zeros((2, 2, T))
 
     # constant parameters
-    A = np.array([[0, 1], [0, 1]])
-    C = np.array([1, 0])
+    A = np.array([[0., 1.], [0., 1.]])
+    C = np.array([1., 0.])
     C2 = np.atleast_2d(C)
 
     # date 1
     #CHECKME: Check the rest of the function
     y10 = C.dot(SI)  # E(y(t|t-1)
-    D = np.asarray(Sm[0])
-    V10 = np.asarray(np.dot(C.dot(PI), C.T) + D.dot(D.T))  # V(y(t|t-1)
+    D = Sm[0]
+    V10 = np.dot(C.dot(PI), C.T) + D * D  # V(y(t|t-1)
     S0[:, 0] = SI + PI.dot(C.T) * (Y[0] - y10) / V10  # E(S(t|t))
     P0[:, :, 0] = PI - np.dot(PI.dot(C2.T), np.dot(C2, PI)) / V10  # V(S(t|t))
     S1[:, 0] = A.dot(S0[:, 0])  # E(S(t+1|t)
@@ -183,8 +184,8 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     # Iterating through the rest of the sample
     for i in range(1, T):
         y10 = C.dot(S1[:, i-1])  # E(y(t|t-1)
-        D = np.asarray(Sm[i])
-        V10 = np.dot(C.dot(P1[:, :, i-1]), C.T) + D.dot(D.T)  # V(y(t|t-1)
+        D = Sm[i]
+        V10 = np.dot(C.dot(P1[:, :, i-1]), C.T) + D * D  # V(y(t|t-1)
         S0[:, i] = S1[:, i-1] + P1[:, :, i-1].dot(C.T) * (Y[i] - y10) / V10  # E(S(t|t))
 
         # V(S(t|t))
@@ -235,7 +236,7 @@ def gibbs1_swr(S0, P0, P1, T):
 
     VERIFIED (1x) SL (8-9-13)
     """
-    A = np.array([[0, 1], [0, 1]])
+    A = np.array([[0., 1.], [0., 1.]])
 
     # initialize arrays for Gibbs sampler
     SA = zeros((2, T))  # artificial states
