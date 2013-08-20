@@ -36,33 +36,42 @@ t = y.shape[0]
 date = np.arange(t) + 1210
 
 Y0 = y[511:581]
-YS_1948_2011 = y[738:802]
 
-# Load Lindert Williamson data
-lnP = np.log(pd.read_csv('../data/Lindert_Williamson.txt',
-                         skiprows=4, sep='  '))
-YS_1791_1850 = lnP.diff().values.ravel()[1:]
+if not os.path.exists("all_data.csv"):
+    YS_1948_2011 = y[738:802]
 
-# Load Bowley data
-lnP = np.log(pd.read_csv('../data/Bowley.txt',
-                         skiprows=3, sep='  ').dropna())
-YS_1847_1914 = lnP.diff().values.ravel()[1:]
+    # Load Lindert Williamson data
+    lnP = np.log(pd.read_csv('../data/Lindert_Williamson.txt',
+                             skiprows=4, sep='  '))
+    YS_1791_1850 = lnP.diff().values.ravel()[1:]
 
-# Load LaborDepartmetn data
-lnP = np.log(pd.read_csv('../data/LaborDepartment.txt',
-                         skiprows=4, sep='  '))
-YS_1915_1947 = lnP.diff().values.ravel()[1:-1]
+    # Load Bowley data
+    lnP = np.log(pd.read_csv('../data/Bowley.txt',
+                             skiprows=3, sep='  ').dropna())
+    YS_1847_1914 = lnP.diff().values.ravel()[1:]
 
-# Stitch it all together
-y = np.concatenate([YS_1791_1850,
-                   YS_1847_1914[4:],
-                   YS_1915_1947,
-                   YS_1948_2011])
-t = y.shape[0]
-tm1 = t - 1
-date = np.arange(t) + 1791
-data = pd.DataFrame(y, index=date)
-data.to_csv('all_data.csv')
+    # Load LaborDepartmetn data
+    lnP = np.log(pd.read_csv('../data/LaborDepartment.txt',
+                             skiprows=4, sep='  '))
+    YS_1915_1947 = lnP.diff().values.ravel()[1:-1]
+
+    # Stitch it all together
+    y = np.concatenate([YS_1791_1850,
+                       YS_1847_1914[4:],
+                       YS_1915_1947,
+                       YS_1948_2011])
+    t = y.shape[0]
+    tm1 = t - 1
+    date = np.arange(t) + 1791
+    data = pd.DataFrame(y, index=date, columns=['y'])
+    data.to_csv('all_data.csv')
+
+else:
+    data = pd.read_csv("all_data.csv")
+    y = data['y'].values
+    date = data.index.values
+    t = y.shape[0]
+    tm1 = t - 1
 
 ##----- Set VAR properties
 L = 0  # VAR lag order
