@@ -1,12 +1,19 @@
+import cython
 from math import log, exp
 import numpy as np
-from numpy import zeros
+from numpy import zeros, matrix
 from scipy.linalg import inv, sqrtm
 
-
-def svmhT(hlag, alpha, delta, sv, yt, hlast):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef svmhT(double hlag, 
+          double alpha, 
+          double delta, 
+          double sv, 
+          double yt, 
+          double hlast):
     """
-    This function returns a draw from the posterior conditional density
+    This function returns a draw from the poster pior conditional density
     for the stochastic volatility parameter at time T. This is
     conditional on the lagging realization, hlag, as well as the data
     and parameters of the svol process.
@@ -23,13 +30,16 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
+    cdef double mu, ss
     mu = alpha + delta * np.log(hlag)
     ss = sv ** 2.
 
     # candidate draw from lognormal
+    cdef double htrial
     htrial = np.exp(mu + (ss ** .5) * np.random.randn(1))
 
     # acceptance probability
+    cdef double lp1, lp0, accept, u, h
     lp1 = -0.5 * log(htrial) - (yt ** 2) / (2 * htrial)
     lp0 = -0.5 * log(hlast) - (yt ** 2) / (2 * hlast)
     accept = min(1., exp(lp1 - lp0))
@@ -42,8 +52,14 @@ def svmhT(hlag, alpha, delta, sv, yt, hlast):
 
     return h
 
-
-def svmh0(hlead, alpha, delta, sv, mu0, ss0):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef svmh0(double hlead, 
+           double alpha, 
+           double delta, 
+           double sv, 
+           double mu0, 
+           double ss0):
     """
     This file returns a draw from the posterior conditional density
     for the stochastic volatility parameter at time 0.  This is conditional
@@ -64,6 +80,7 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
+    cdef double ssv, ss, mu
     ssv = sv ** 2
     ss = ss0 * ssv / (ssv + (delta ** 2) * ss0)
     mu = ss * (mu0 / ss0 + delta * (np.log(hlead) - alpha) / ssv)
@@ -71,12 +88,20 @@ def svmh0(hlead, alpha, delta, sv, mu0, ss0):
     # import pdb; pdb.set_trace()
 
     # draw from lognormal (accept = 1, since there is no observation)
+    cdef double h
     h = np.exp(mu + (ss ** .5) * np.random.randn(1))
 
     return h
 
-
-def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef svmh(double hlead, 
+          double hlag, 
+          double alpha, 
+          double delta, 
+          double sv, 
+          double yt, 
+          double hlast):
     """
     This file returns a draw from the posterior conditional density
     for the stochastic volatility parameter at time t.  This is conditional
@@ -96,13 +121,16 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
     VERIFIED (1x) SL (8-9-13)
     """
     # mean and variance for log(h) (proposal density)
+    cdef double mu, ss
     mu = alpha*(1-delta) + delta*(np.log(hlead)+np.log(hlag)) / (1+delta**2)
     ss = (sv**2) / (1+delta**2)
 
     # candidate draw from lognormal
+    cdef double htrial
     htrial = np.exp(mu + (ss**.5) * np.random.randn(1))
 
     # acceptance probability
+    cdef double lp1, lp0, accept, h
     lp1 = -0.5 * np.log(htrial) - (yt**2) / (2 * htrial)
     lp0 = -0.5 * np.log(hlast) - (yt**2) / (2 * hlast)
     accept = min(1, np.exp(lp1 - lp0))
@@ -116,19 +144,28 @@ def svmh(hlead, hlag, alpha, delta, sv, yt, hlast):
     return h
 
 
-def rmean(x):
-    "this computes the recursive mean for a matrix x"
+# cdef rmean(double[:, ::1] x):
+#     "this computes the recursive mean for a matrix x"
+#     cdef int N, NG, i
+#     cdef double[:, ::1] rm
 
-    N, NG = x.shape
-    rm = zeros((NG, N))
-    rm[0, :] = x[:, 0].T
-    for i in range(1, NG):
-        rm[i, :] = rm[i - 1, :] + (1 / i) * (x[:, i].T - rm[i - 1, :])
+#     N, NG = x.shape
+#     rm = zeros((NG, N))
+#     rm[0, :] = x[:, 0].T
+#     for i in range(1, NG):
+#         rm[i, :] = rm[i - 1, :] + (1 / i) * (x[:, i].T - rm[i - 1, :])
 
-    return rm
+#     return rm
 
-
-def kf_SWR(Y, Q, R, Sm, SI, PI, T):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef kf_SWR(double[:] Y, 
+            double[:] Q, 
+            double[:] R, 
+            double[:] Sm, 
+            double[:] SI, 
+            double[:, ::1] PI,
+            int T):
     """
     This file performs the forward kalman filter recursions for the
     Stock-Watson-Romer model.
@@ -150,13 +187,14 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
 
     VERIFIED (1x) SL (8-9-13)
     """
-
+    cdef double[:, ::1] S0, S1, A, C
     # current estimate of the state, S(t|t)
     S0 = zeros((2, T))
 
     # one-step ahead estimate of the state, S(t+1|t)
     S1 = zeros((2, T))
 
+    cdef double[:, :, :] P0, P1
     # current estimate of the covariance matrix, P(t|t)
     P0 = zeros((2, 2, T))
 
@@ -167,6 +205,8 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
     A = np.array([[0, 1], [0, 1]])
     C = np.array([[1, 0]])
 
+    cdef double y10, D, V10
+    cdef double[:, ::1] B
     # date 1
     #CHECKME: Check the rest of the function
     y10 = float(C.dot(SI))  # E(y(t|t-1)
@@ -201,8 +241,11 @@ def kf_SWR(Y, Q, R, Sm, SI, PI, T):
 
     return S0, P0, P1
 
-
-def ig2(v0, d0, x):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef ig2(double v0, 
+         double d0, 
+         double[:] x):
     """
     This file returns posterior draw, v, from an inverse gamma with
     prior degrees of freedom v0/2 and scale parameter d0/2.  The
@@ -215,6 +258,9 @@ def ig2(v0, d0, x):
 
     BUG: Should return scalar.
     """
+    cdef double z, v, v1, d1, xx
+    cdef int T
+
     if isinstance(x, np.ndarray):
         T = x.size if x.ndim == 1 else x.shape[0]
     elif isinstance(x, float) or isinstance(x, int):
@@ -222,12 +268,16 @@ def ig2(v0, d0, x):
     v1 = v0 + T
     d1 = d0 + np.inner(x, x)
     z = np.random.randn(v1)
-    x = np.inner(z, z)
-    v = d1 / x
+    xx = np.inner(z, z)
+    v = d1 / xx
     return v
 
-
-def gibbs1_swr(S0, P0, P1, T):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef gibbs1_swr(double[:, ::1] S0,
+               double[:, :, :] P0,
+               double[:, :, :] P1,
+               int T):
     """
     function SA = GIBBS1_SWR(S0,P0,P1,T);
 
@@ -238,6 +288,8 @@ def gibbs1_swr(S0, P0, P1, T):
 
     VERIFIED (1x) SL (8-9-13)
     """
+    cdef double[:, ::1] A, SA, SM, PM, P, wa
+
     A = np.array([[0, 1], [0, 1]])
 
     # initialize arrays for Gibbs sampler
@@ -253,9 +305,9 @@ def gibbs1_swr(S0, P0, P1, T):
 
     # iterating back through the rest of the sample
     for i in range(2, T + 1):
-        PM = np.dot(P0[:, :, -i].dot(A.T), inv(P1[:, :, -i]))
-        P = P0[:, :, -i] - np.dot(PM.dot(A), P0[:, :, -i])
-        SM = S0[:, -i] + PM.dot(SA[:, -i+1] - A.dot(S0[:, -i]))
-        SA[:, -i] = SM + np.real(sqrtm(P)).dot(wa[:, -i])
+        PM = np.dot(P0[:, :, T-i].dot(A.T), inv(P1[:, :, T-i]))
+        P = P0[:, :, T-i] - np.dot(PM.dot(A), P0[:, :, T-i])
+        SM = S0[:, T-i] + PM.dot(SA[:, T-i+1] - A.dot(S0[:, T-i]))
+        SA[:, T-i] = SM + np.real(sqrtm(P)).dot(wa[:, T-i])
 
     return SA

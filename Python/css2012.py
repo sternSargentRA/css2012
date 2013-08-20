@@ -7,7 +7,7 @@ from numpy import matrix, ones, zeros
 from numpy.linalg import inv
 from scipy.linalg import sqrtm
 from scipy.io import savemat
-from numbapro import autojit
+# from numbapro import autojit
 from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
 
 if sys.version_info[0] >= 3:
@@ -113,7 +113,6 @@ SMV[0, :] = sm0
 ##----- begin MCMC
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
-
         S0, P0, P1 = kf_SWR(YS, QA[:,i_g-1], RA[:,i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
