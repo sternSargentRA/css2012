@@ -112,6 +112,28 @@ SMT[:157] = sm0
 SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
+
+def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
+    RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
+                       np.log(RQ0), ss0)
+
+    for i in range(1, t):
+        RQ[i, i_g] = svmh(RQ[i+1, i_g-1], RQ[i-1, i_g], 0, 1,
+                          SV[i_g-1, 0], f[i-1, 0], RQ[i, i_g-1])
+
+    RQ[t, i_g] = svmhT(RQ[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
+                       RQ[tm1, i_g-1])
+
+    # No return because we just modified RQ in place
+
+
+def computeSV(i_g, RQ, v0, dr0):
+    lrq = np.log(RA[:, i_g])
+    erq = lrq[1:] - lrq[:t]  # random walk
+    v = ig2(v0, dr0, erq)
+    return sqrt(v)
+
+
 ##----- begin MCMC
 for i_f in xrange(NF):
     for i_g in xrange(1, NG):
@@ -122,37 +144,11 @@ for i_f in xrange(NF):
         # stochastic volatilities
         f = np.diff(np.column_stack([SI, SA[i_g, :, :]])).T
 
-        # log R|sv,y and log Q|sv, y
-        RA[0, i_g] = svmh0(RA[1, i_g - 1], 0, 1, SV[i_g-1, 0],
-                           np.log(R0), ss0)
-        QA[0, i_g] = svmh0(QA[1, i_g-1], 0, 1, SV[i_g-1, 1],
-                           np.log(Q0), ss0)
-        for i in range(1, t):
-            RA[i, i_g] = svmh(RA[i+1, i_g-1], RA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 0], f[i-1, 0], RA[i, i_g-1])
+        updateRQ(i_g, RA, SV, R0, ss0, f)   # update RA inplace
+        updateRQ(i_g, QA, SV, Q0, ss0, f)   # update QA inplace
 
-            QA[i, i_g] = svmh(QA[i+1, i_g-1], QA[i-1, i_g], 0, 1,
-                              SV[i_g-1, 1], f[i-1, 1], QA[i, i_g-1])
-
-        # TODO: f.shape[0] == t. jl and ml use f[T,1] here.
-        # TODO: Also check that QA/RA.shape[0] == t+1
-        RA[t, i_g] = svmhT(RA[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
-                           RA[tm1, i_g-1])
-
-        QA[t, i_g] = svmhT(QA[tm1, i_g], 0, 1, SV[i_g-1, 1], f[tm1, 1],
-                           QA[tm1, i_g-1])
-
-        # svr
-        lr = np.log(RA[:, i_g])
-        er = lr[1:] - lr[:t]  # random walk
-        v = ig2(v0, dr0, er)
-        SV[i_g, 0] = sqrt(v)
-
-        #svq
-        lq = np.log(QA[:, i_g])
-        eq = lq[1:] - lq[:t]  # random walk
-        v = ig2(v0, dr0, eq)
-        SV[i_g, 1] = sqrt(v)
+        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0)  # svr
+        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0)  # svq
 
         # measurement error
         em = YS - SA[i_g, 0, :]
