@@ -1,12 +1,16 @@
 import cython
-from math import log, exp
+cimport tokyo
+import tokyo
 import numpy as np
-from numpy import zeros, matrix
-from scipy.linalg import inv, sqrtm
+cimport numpy as np
+import scipy as sp
+cimport scipy as sp
+import math
+cimport as math
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef svmhT(double hlag, 
+cdef svmhT(double hlag, 
           double alpha, 
           double delta, 
           double sv, 
@@ -54,7 +58,7 @@ cpdef svmhT(double hlag,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef svmh0(double hlead, 
+cdef svmh0(double hlead, 
            double alpha, 
            double delta, 
            double sv, 
@@ -95,7 +99,7 @@ cpdef svmh0(double hlead,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef svmh(double hlead, 
+cdef svmh(double hlead, 
           double hlag, 
           double alpha, 
           double delta, 
@@ -159,7 +163,7 @@ cpdef svmh(double hlead,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef kf_SWR(double[:] Y, 
+cdef kf_SWR(double[:] Y, 
             double[:] Q, 
             double[:] R, 
             double[:] Sm, 
@@ -243,7 +247,7 @@ cpdef kf_SWR(double[:] Y,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef ig2(double v0, 
+cdef ig2(double v0, 
          double d0, 
          double[:] x):
     """
@@ -274,7 +278,7 @@ cpdef ig2(double v0,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef gibbs1_swr(double[:, ::1] S0,
+cdef gibbs1_swr(double[:, ::1] S0,
                double[:, :, :] P0,
                double[:, :, :] P1,
                int T):

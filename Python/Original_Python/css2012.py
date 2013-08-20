@@ -21,7 +21,7 @@ NF = 20
 
 ##----- Load data
 # Load military data
-A = pd.read_excel('../data/UKdata.xls', "Price Data",
+A = pd.read_excel('../../data/UKdata.xls', "Price Data",
                   index_col=0)['Close'].reset_index(drop=True).values
 y = np.log(A[1:]) - np.log(A[:-1])
 t = y.shape[0]
@@ -31,17 +31,17 @@ Y0 = y[511:581]
 YS_1948_2011 = y[738:802]
 
 # Load Lindert Williamson data
-lnP = np.log(pd.read_csv('../data/Lindert_Williamson.txt',
+lnP = np.log(pd.read_csv('../../data/Lindert_Williamson.txt',
                          skiprows=4, sep='  '))
 YS_1791_1850 = lnP.diff().values.ravel()[1:]
 
 # Load Bowley data
-lnP = np.log(pd.read_csv('../data/Bowley.txt',
+lnP = np.log(pd.read_csv('../../data/Bowley.txt',
                          skiprows=3, sep='  ').dropna())
 YS_1847_1914 = lnP.diff().values.ravel()[1:]
 
 # Load LaborDepartmetn data
-lnP = np.log(pd.read_csv('../data/LaborDepartment.txt',
+lnP = np.log(pd.read_csv('../../data/LaborDepartment.txt',
                          skiprows=4, sep='  '))
 YS_1915_1947 = lnP.diff().values.ravel()[1:-1]
 

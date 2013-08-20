@@ -8,7 +8,7 @@ from numpy.linalg import inv
 from scipy.linalg import sqrtm
 from scipy.io import savemat
 # from numbapro import autojit
-from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
+from css2012CythonFuncs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
 
 if sys.version_info[0] >= 3:
     xrange = range
