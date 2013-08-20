@@ -122,7 +122,7 @@ SMV[0, :] = sm0
 
 
 ##----- Define MCMC funcs
-@autojit()
+@autojit
 def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
     RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
                        np.log(RQ0), ss0)
