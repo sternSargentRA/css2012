@@ -160,12 +160,12 @@ cpdef svmh(double hlead,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef kf_SWR(double[:] Y, 
-            double[:] Q, 
-            double[:] R, 
-            double[:] Sm, 
-            double[:] SI, 
-            double[:, ::1] PI,
-            int T):
+             double[:] Q, 
+             double[:] R, 
+             double[:] Sm, 
+             double[:] SI, 
+             double[:, ::1] PI,
+             int T):
     """
     This file performs the forward kalman filter recursions for the
     Stock-Watson-Romer model.
@@ -202,50 +202,51 @@ cpdef kf_SWR(double[:] Y,
     P1 = zeros((2, 2, T))
 
     # constant parameters
-    A = np.array([[0, 1], [0, 1]])
-    C = np.array([[1, 0]])
+    A = np.array([[0., 1.], [0., 1.]])
+    C = np.array([[1., 0.]])
 
-    cdef double y10, D, V10
+    cdef double y10 , D, V10
     cdef double[:, ::1] B
     # date 1
     #CHECKME: Check the rest of the function
-    y10 = float(C.dot(SI))  # E(y(t|t-1)
+    y10 = np.dot(SI, C.T)[0]  # E(y(t|t-1)
     # D = np.asarray(Sm[0])
-    D = float(Sm[0])
+    D = Sm[0]
     # V10 = np.asarray(np.dot(C.dot(PI), C.T) + D.dot(D.T))  # V(y(t|t-1)
-    V10 = float(np.dot(C.dot(PI), C.T)+ D**2)
-    S0[:, 0] = SI + (PI.dot(C.T) * (Y[0] - y10) / V10).squeeze()  # E(S(t|t))
-    P0[:, :, 0] = PI - np.dot(PI.dot(C.T), np.dot(C, PI)) / V10  # V(S(t|t))
-    S1[:, 0] = A.dot(S0[:, 0])  # E(S(t+1|t)
+    V10 = np.dot(C, np.dot((PI), C.T))[0][0] + D**2
+    S0[:, 0] = SI + (np.dot(PI, C.T) * (Y[0] - y10) / V10).squeeze()  # E(S(t|t))
+    P0[:, :, 0] = PI - np.dot(np.dot(PI, C.T), np.dot(C, PI)) / V10  # V(S(t|t))
+    S1[:, 0] = np.dot(A, S0[:, 0])  # E(S(t+1|t)
     B = np.array([[R[1] ** .5, Q[1] ** .5],
                   [0, Q[1] ** .5]])
-    P1[:, :, 0] = np.dot(A.dot(P0[:, :, 0]), A.T) + B.dot(B.T)  # V(S(t+1|t)
+    P1[:, :, 0] = np.dot(np.dot(A, P0[:, :, 0]), A.T) + np.dot(B, B.T)  # V(S(t+1|t)
 
     # Iterating through the rest of the sample
+    cdef int i
     for i in range(1, T):
-        y10 = float(C.dot(S1[:, i-1]))  # E(y(t|t-1)
+        y10 = np.dot(C, S1[:, i-1])[0]  # E(y(t|t-1)
         # D = np.asarray(Sm[i])
-        D = float(Sm[i])
+        D = Sm[i]
         # V10 = np.dot(C.dot(P1[:, :, i-1]), C.T) + D.dot(D.T)  # V(y(t|t-1)
-        V10 = float(np.dot(C.dot(P1[:, :, i-1]), C.T) + D**2)
-        S0[:, i] = S1[:, i-1] + (P1[:, :, i-1].dot(C.T) * (Y[i] - y10) / V10).squeeze()  # E(S(t|t))
+        V10 = np.dot(np.dot(C, P1[:, :, i-1]), C.T)[0][0] + D**2
+        S0[:, i] = S1[:, i-1] + (np.dot(P1[:, :, i-1], C.T) * (Y[i] - y10) / V10).squeeze()  # E(S(t|t))
 
         # V(S(t|t))
-        P0[:, :, i] = P1[:, :, i-1] - (np.dot(P1[:, :, i-1].dot(C.T),
+        P0[:, :, i] = P1[:, :, i-1] - (np.dot(np.dot(P1[:, :, i-1], C.T),
                                        np.dot(C, P1[:, :, i-1])) / V10)
 
-        S1[:, i] = A.dot(S0[:, i])  # E(S(t+1|t))
+        S1[:, i] = np.dot(A, S0[:, i])  # E(S(t+1|t))
         B = np.array([[R[i+1] ** .5, Q[i+1] ** .5],
                       [0, Q[i+1] ** .5]])
-        P1[:, :, i] = np.dot(A.dot(P0[:, :, i]), A.T) + B.dot(B.T)  # V(S(t+1|t))
+        P1[:, :, i] = np.dot(np.dot(A, P0[:, :, i]), A.T) + np.dot(B, B.T)  # V(S(t+1|t))
 
     return S0, P0, P1
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef ig2(double v0, 
-         double d0, 
-         double[:] x):
+          double d0, 
+          double[:] x):
     """
     This file returns posterior draw, v, from an inverse gamma with
     prior degrees of freedom v0/2 and scale parameter d0/2.  The
@@ -301,13 +302,14 @@ cpdef gibbs1_swr(double[:, ::1] S0,
 
     # Backward recursions and sampling
     # Terminal state
-    SA[:, T-1] = S0[:, T-1] + np.real(sqrtm(P0[:, :, T-1])).dot(wa[:, T-1])
+    SA[:, T-1] = S0[:, T-1] + np.dot(np.real(sqrtm(P0[:, :, T-1])), (wa[:, T-1]))
 
     # iterating back through the rest of the sample
+    cdef int i
     for i in range(1, T):
-        PM = np.dot(P0[:, :, T-i].dot(A.T), inv(P1[:, :, T-i]))
-        P = P0[:, :, T-i] - np.dot(PM.dot(A), P0[:, :, T-i])
-        SM = S0[:, T-i-1] + PM.dot(SA[:, T-i+1] - A.dot(S0[:, T-i-1]))
-        SA[:, T-i-1] = SM + np.real(sqrtm(P)).dot(wa[:, T-i-1])
+        PM = np.dot(np.dot(P0[:, :, T-i], A.T), inv(P1[:, :, T-i]))
+        P = P0[:, :, T-i] - np.dot(np.dot(PM, A), P0[:, :, T-i])
+        SM = S0[:, T-i-1] + np.dot(PM, SA[:, T-i+1] - A.dot(S0[:, T-i-1]))
+        SA[:, T-i-1] = SM + np.dot(np.real(sqrtm(P)), wa[:, T-i-1])
 
     return SA
