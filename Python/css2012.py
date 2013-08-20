@@ -145,7 +145,7 @@ def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
 
 
 def computeSV(i_g, RQ, v0, dr0):
-    lrq = np.log(RA[:, i_g])
+    lrq = np.log(RQ[:, i_g])
     erq = lrq[1:] - lrq[:t]  # random walk
     v = ig2(v0, dr0, erq)
     return sqrt(v)
