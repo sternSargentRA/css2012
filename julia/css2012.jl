@@ -10,9 +10,9 @@ output_dir = "ParData"
 # Base file name to append numbers to. Leave $(number) in there!
 file_name(number::String) = "swuc_swrp_$(number).mat"
 
-skip = 100  # number of Gibbs draws to do before printing
+skip = 10  # number of Gibbs draws to do before printing
 
-NG = 5000 # number of draws from Gibbs sampler per data file
+NG = 50 # number of draws from Gibbs sampler per data file
 NF = 20  # Number of times to run the simulation
 
 if !isdir(output_dir)
