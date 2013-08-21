@@ -6,7 +6,8 @@ import pandas as pd
 import numpy as np
 from numpy import ones, zeros
 from scipy.io import savemat
-from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
+from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr,
+                          updateRQ, computeSV, measurement_error)
 
 if sys.version_info[0] >= 3:
     xrange = range
@@ -17,14 +18,18 @@ output_dir = "SimData"
 # Base file name to append numbers to. Leave {num} in there somewhere!
 file_name = "swuc_swrp_{num}.mat"
 
-skip = 100  # number of Gibbs draws to do before printing status
+skip = 10  # number of Gibbs draws to do before printing status
 
 # Other params needed below, but not to be modified.
 save_path = output_dir + os.path.sep + file_name
 
+# Create output directory if needed
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
 ##---------------------------- Main Course
 NF = 20
-NG = 5000  # number of draws from Gibbs sampler per data file
+NG = 50  # number of draws from Gibbs sampler per data file
 NGm = NG - 1
 
 ##----- Load data
@@ -129,60 +134,38 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 
-##----- Define MCMC funcs
-def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
-    RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
-                       np.log(RQ0), ss0)
+def mcmc_loop(i_f):
+    """
+    Based on inputs in this file, run an entire simulation and save the
+    data to a Matlab .mat file.
 
-    for i in range(1, t):
-        RQ[i, i_g] = svmh(RQ[i+1, i_g-1], RQ[i-1, i_g], 0, 1,
-                          SV[i_g-1, 0], f[i-1, 0], RQ[i, i_g-1])
+    Parameters
+    ==========
+    i_f : int
+        An integer that is used to replace {num} in the `file_name`
+        variable from above when saving the .mat file.
 
-    RQ[t, i_g] = svmhT(RQ[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
-                       RQ[tm1, i_g-1])
+    Returns
+    =======
+    None : all work is done internally and desired objects are saved.
 
-    # No return because we just modified RQ in place
-
-
-def computeSV(i_g, RQ, v0, dr0):
-    lrq = np.log(RQ[:, i_g])
-    erq = lrq[1:] - lrq[:t]  # random walk
-    v = ig2(v0, dr0, erq)
-    return sqrt(v)
-
-
-def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
-    em = YS - SA[i_g, 0, :]
-    v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
-    v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
-    v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
-    SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
-    SMT[:60] = SMV[i_g, 0]
-    SMT[60:124] = SMV[i_g, 1]
-    SMT[124:157] = SMV[i_g, 2]
-
-    # Again, no returns because we modify SMV and SMT in place
-
-##----- begin MCMC
-start_time = time()
-iter_time = time()
-for i_f in xrange(NF):
+    """
+    iter_time = time()
     for i_g in xrange(1, NG):
-
         S0, P0, P1 = kf_SWR(YS, QA[:, i_g-1], RA[:, i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
         f = np.diff(np.column_stack([SI, SA[i_g, :, :]])).T
 
-        updateRQ(i_g, RA, SV, R0, ss0, f)   # update RA inplace
-        updateRQ(i_g, QA, SV, Q0, ss0, f)   # update QA inplace
+        updateRQ(i_g, RA, SV, R0, ss0, f, t, tm1)   # update RA inplace
+        updateRQ(i_g, QA, SV, Q0, ss0, f, t, tm1)   # update QA inplace
 
-        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0)  # svr
-        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0)  # svq
+        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0, t)  # svr
+        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0, t)  # svq
 
         # measurement error
-        measurement_error(YS, SA, vm0, dm0, SMV, SMT)
+        measurement_error(i_g, YS, SA, vm0, dm0, SMV, SMT)
 
         ##################################### Done breaking it up!
 
@@ -194,10 +177,8 @@ for i_f in xrange(NF):
             print(msg.format(i_f, i_g, tot_time, i_time))
             iter_time = time()
 
-    if i_f < 10:
-        num = '0' + str(i_f)
-    else:
-        num = str(i_f)
+    # Add leading 0 for single digit file counts to be consistent with Matlab
+    num = '0' + str(i_f) if i_f < 10 else str(i_f)
     f_name = save_path.format(num=num)
 
     SD = SA[0:NG-1:10, :, :]
@@ -212,8 +193,6 @@ for i_f in xrange(NF):
             'VD': VD,
             'MD': MD}
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
     savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
@@ -222,3 +201,14 @@ for i_f in xrange(NF):
     RA[:, 0] = RA[:, NGm]
     SV[0, :] = SV[NGm, :]
     SMV[0, :] = SMV[NGm, :]
+
+##----- Do MCMC calculations in series.
+if __name__ == '__main__':
+    # The if __name__ clause allows us to "run" this file normally to do
+    # the simulation in series. However, it still allows us to import
+    # the mcmc_loop function in the parallel driver, reducing code
+    # repetition.
+    start_time = time()
+    for i_f in xrange(NF):
+        mcmc_loop(i_f)
+

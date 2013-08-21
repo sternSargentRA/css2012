@@ -1,4 +1,4 @@
-from math import log, exp
+from math import log, exp, sqrt
 import numpy as np
 from random import normalvariate
 from numpy import zeros
@@ -264,6 +264,42 @@ def gibbs1_swr(S0, P0, P1, T):
     return SA
 
 
+##----- Define MCMC funcs
+def updateRQ(i_g, RQ, SV, RQ0, ss0, f, t, tm1):
+    RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
+                       np.log(RQ0), ss0)
+
+    for i in range(1, t):
+        RQ[i, i_g] = svmh(RQ[i+1, i_g-1], RQ[i-1, i_g], 0, 1,
+                          SV[i_g-1, 0], f[i-1, 0], RQ[i, i_g-1])
+
+    RQ[t, i_g] = svmhT(RQ[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
+                       RQ[tm1, i_g-1])
+
+    # No return because we just modified RQ in place
+
+
+def computeSV(i_g, RQ, v0, dr0, t):
+    lrq = np.log(RQ[:, i_g])
+    erq = lrq[1:] - lrq[:t]  # random walk
+    v = ig2(v0, dr0, erq)
+    return sqrt(v)
+
+
+def measurement_error(i_g, YS, SA, vm0, dm0, SMV, SMT):
+    em = YS - SA[i_g, 0, :]
+    v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
+    v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
+    v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
+    SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
+    SMT[:60] = SMV[i_g, 0]
+    SMT[60:124] = SMV[i_g, 1]
+    SMT[124:157] = SMV[i_g, 2]
+
+    # Again, no returns because we modify SMV and SMT in place
+
+
+##----- Define MPI helper functions for parallel code
 def rprint(msg):
     "Print the message on the root process"
     if rank == 0:
