@@ -1,15 +1,14 @@
 #### css2012.jl: Julia implementation of Matlab file SWUC_model_SWRprior_2011.m
 ##---------------------------- Initial Setup
-tic()
 using DataFrames
 using MAT
 
 ##---------------------------- Run Control parameters
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
-output_dir = "SimData"
+output_dir = "ParData"
 
-# Base file name to append numbers to. Leave $(num) and (:stuff) in there!
-file_name = (:"swuc_swrp_$(num).mat")
+# Base file name to append numbers to. Leave $(number) in there!
+file_name(number::String) = "swuc_swrp_$(number).mat"
 
 skip = 100  # number of Gibbs draws to do before printing
 
@@ -26,7 +25,7 @@ include("cssfuncs.jl")  # Just include these functions from the other file.
 ##---------------------------- Load Data
 # TODO: Is this the best way to have non-repetitive code inclusion? My only
 #       hangup is that some variables that are used below aren't defined in
-#       this file.
+#       this file, they are defined in load_data.jl
 include("load_data.jl")
 
 ##---------------------------- Main Course
@@ -78,39 +77,9 @@ SV[1, :] = [svr0 svq0]
 SMT = [sm0*ones(157,1); sm_post_48*ones(size(date[158:221,1]))]
 SMV[1, :] = sm0
 
-# msqeeze(A) = squeeze(A, find(([size(A)..]. ==1)))
 
-## Define mcmc functions
-function updateRQ(iter, RQ, SV, RQ0, ss0, f, T)
-    RQ[1,iter] = svmh0(RQ[2,iter-1],0,1,SV[iter-1,1],log(R0),ss0)[1][1]
-
-    for t = 2:T
-        RQ[t,iter] = svmh(RQ[t+1,iter-1],RQ[t-1,iter],0,1,SV[iter-1,1],f[t-1,1],RQ[t,iter-1])[1][1]
-    end
-
-    RQ[T+1,iter] = svmhT(RQ[T,iter],0,1,SV[iter-1,1],f[T,1],RQ[T+1,iter-1])[1][1]
-end
-
-function computeSV(iter, RQ, v0, dr0)
-    lr = log(RQ[:,iter])
-    er = lr[2:T+1,1] - lr[1:T,1]  # random walk
-    v = ig2(v0,dr0,er)[1][1]
-    return sqrt(v)
-end
-
-function measurement_error(YS, SA, vm0, dm0, SMV, SMT)
-    em = YS - squeeze(SA[iter,1,:], 2)
-    v1 = ig2(vm0,dm0,em[1,1:60]')[1][1] # measurement error 1791-1850 (Lindert-Williamson)
-    v2 = ig2(vm0,dm0,em[1,61:124]')[1][1] # measurement error 1851-1914 (Bowley)
-    v3 = ig2(vm0,dm0,em[1,125:157]')[1][1] # measurement error 1915-1947 (Labor Department)
-    SMV[iter,:] = [v1 v2 v3].^.5
-    SMT[1:60,1] = SMV[iter,1]*ones(60,1)
-    SMT[61:124,1] = SMV[iter,2]*ones(64,1)
-    SMT[125:157,1] = SMV[iter,3]*ones(33,1)
-end
-
-iter_time = time()
-for file = 1:NF
+function mcmc_loop(file)
+    iter_time = time()
     for iter = 2:NG
         S0, P0, P1 = kf_SWR(YS, QA[:, iter-1], RA[:, iter-1], SMT, SI, PI, T)
         SA[iter,:,:] = reshape(gibbs1_swr(S0, P0, P1, T), (1, 2, T))
@@ -125,7 +94,7 @@ for file = 1:NF
         SV[iter,2] = computeSV(iter, QA, v0, dr0)  # svr
 
         # measurement error
-        measurement_error(YS, SA, vm0, dm0, SMV, SMT)
+        measurement_error(iter, YS, SA, vm0, dm0, SMV, SMT)
 
         if mod(iter, skip) == 0
             msg = "Iteration ($file, $iter). Time for last $skip iterations:"
@@ -143,8 +112,8 @@ for file = 1:NF
     VD = SV[1:10:NG, :]
     MD = SMV[1:10:NG, :]
 
-    num = file < 10 ? string("0", file) : file
-    save_path = joinpath(pwd(), output_dir, eval(file_name))
+    number = file < 10 ? string("0", file) : string(file)
+    save_path = joinpath(pwd(), output_dir, file_name(number))
 
     matwrite(save_path, {"SD" => SD, "QD" => QD, "RD" => RD, "VD" => VD,
                          "MD" => MD})
@@ -157,4 +126,3 @@ for file = 1:NF
     SMV[1,:] = SMV[NG,:]
 
 end
-tot_time = toc()

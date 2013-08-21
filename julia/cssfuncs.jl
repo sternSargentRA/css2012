@@ -207,3 +207,35 @@ function ig2(v0,d0,x)
 
     return v, v1, d1
 end
+
+
+## Define mcmc functions
+function updateRQ(iter, RQ, SV, RQ0, ss0, f, T)
+    RQ[1,iter] = svmh0(RQ[2,iter-1],0,1,SV[iter-1,1],log(R0),ss0)[1][1]
+
+    for t = 2:T
+        RQ[t,iter] = svmh(RQ[t+1,iter-1],RQ[t-1,iter],0,1,SV[iter-1,1],f[t-1,1],RQ[t,iter-1])[1][1]
+    end
+
+    RQ[T+1,iter] = svmhT(RQ[T,iter],0,1,SV[iter-1,1],f[T,1],RQ[T+1,iter-1])[1][1]
+end
+
+
+function computeSV(iter, RQ, v0, dr0)
+    lr = log(RQ[:,iter])
+    er = lr[2:T+1,1] - lr[1:T,1]  # random walk
+    v = ig2(v0,dr0,er)[1][1]
+    return sqrt(v)
+end
+
+
+function measurement_error(iter, YS, SA, vm0, dm0, SMV, SMT)
+    em = YS - squeeze(SA[iter,1,:], 2)
+    v1 = ig2(vm0,dm0,em[1,1:60]')[1][1] # measurement error 1791-1850 (Lindert-Williamson)
+    v2 = ig2(vm0,dm0,em[1,61:124]')[1][1] # measurement error 1851-1914 (Bowley)
+    v3 = ig2(vm0,dm0,em[1,125:157]')[1][1] # measurement error 1915-1947 (Labor Department)
+    SMV[iter,:] = [v1 v2 v3].^.5
+    SMT[1:60,1] = SMV[iter,1]*ones(60,1)
+    SMT[61:124,1] = SMV[iter,2]*ones(64,1)
+    SMT[125:157,1] = SMV[iter,3]*ones(33,1)
+end
