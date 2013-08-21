@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 from time import time
@@ -6,11 +7,17 @@ import pandas as pd
 import numpy as np
 from numpy import ones, zeros
 from scipy.io import savemat
-from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr)
+from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr,
+                          updateRQ, computeSV, measurement_error)
 
 if sys.version_info[0] >= 3:
     xrange = range
-##---------------------------- Run Control parameters
+
+##----- Run Control parameters
+NF = 20  # Number of times to run the MCMC process
+NG = 5000  # number of draws from Gibbs sampler per data file
+NGm = NG - 1  # constant used in calculations
+
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
 output_dir = "SimData"
 
@@ -22,10 +29,9 @@ skip = 100  # number of Gibbs draws to do before printing status
 # Other params needed below, but not to be modified.
 save_path = output_dir + os.path.sep + file_name
 
-##---------------------------- Main Course
-NF = 20
-NG = 5000  # number of draws from Gibbs sampler per data file
-NGm = NG - 1
+# Create output directory if needed
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 ##----- Load data
 # Load military data
@@ -37,7 +43,7 @@ date = np.arange(t) + 1210
 
 Y0 = y[511:581]
 
-if not os.path.exists("all_data.csv"):
+if not os.path.exists("all_data.csv"):  # Don't repeat of not necessary
     YS_1948_2011 = y[738:802]
 
     # Load Lindert Williamson data
@@ -73,11 +79,10 @@ else:
     t = y.shape[0]
     tm1 = t - 1
 
-##----- Set VAR properties
+##----- Set VAR properties and priors
 L = 0  # VAR lag order
 YS = y[L: t]
 
-##----- A weakly informative prior
 # prior mean on initial value of state first element is \pi
 SI = ones(2) * Y0.mean()
 
@@ -89,18 +94,18 @@ Q0 = R0 / 25  # prior variance for trend innovations
 
 df = 2  # prior degrees of freedom
 
-##----- priors for sv (inverse gamma) (standard dev for volatility innovation)
-# stock and watson's calibrated value adjusted for time aggregation
+# priors for sv (inverse gamma) (standard dev for volatility innovation)
+# v0 is stock and watson's calibrated value adjusted for time aggregation
 v0 = 10.
 svr0 = 0.2236 * sqrt((v0 + 1) / v0)
 svq0 = 0.2236 * sqrt((v0 + 1) / v0)
 dr0 = v0 * (svr0 ** 2.)
 dq0 = v0 * (svq0 ** 2.)
 
-##----- prior variance for log R0, log Q0 (ballpark numbers)
+# prior variance for log R0, log Q0 (ballpark numbers)
 ss0 = 5.
 
-##----- prior for measurement-error variance \sigma_m (prior is same for both
+# prior for measurement-error variance \sigma_m (prior is same for both
 # periods)
 vm0 = 7.
 sm0 = 0.5 * sqrt(R0) * sqrt((vm0 + 1) / vm0)
@@ -110,14 +115,14 @@ dm0 = vm0 * (sm0 ** 2)
 # This is just to simplify programming
 sm_post_48 = 0.0001
 
-##----- initialize gibbs arrays
+##----- Initialize gibbs, volatility, and measurement arrays
 SA = zeros((NG, 2, t))  # draws of the state vector
 QA = zeros((t+1, NG))  # stochastic volatilities for SW permanent innovation
 RA = zeros((t+1, NG))  # stochastic volatilities for SW transient innovation
 SV = zeros((NG, 2))  # standard error for log volatility innovations
 SMV = zeros((NG, 3))  # standard error for measurement error
 
-##----- initialize stochastic volatilities and measurement error variance
+# initialize stochastic volatilities and measurement error variance
 QA[:, 0] = Q0
 RA[:, 0] = R0
 SV[0, :] = [svr0, svq0]
@@ -129,60 +134,46 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 
-##----- Define MCMC funcs
-def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
-    RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
-                       np.log(RQ0), ss0)
+##----- Define main mcmc function
+def mcmc_loop(i_f, p_func=print):
+    """
+    Based on inputs in this file, run an entire simulation and save the
+    data to a Matlab .mat file.
 
-    for i in range(1, t):
-        RQ[i, i_g] = svmh(RQ[i+1, i_g-1], RQ[i-1, i_g], 0, 1,
-                          SV[i_g-1, 0], f[i-1, 0], RQ[i, i_g-1])
+    Parameters
+    ==========
+    i_f : int
+        An integer that is used to replace {num} in the `file_name`
+        variable from above when saving the .mat file.
 
-    RQ[t, i_g] = svmhT(RQ[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
-                       RQ[tm1, i_g-1])
+    p_func : function, optional(default=print)
+        The function to be used to print updates. This defaults to the
+        print function imported from __future__. This option is used
+        so that the parallel code can alter the print message to specify
+        which process is calling print.
 
-    # No return because we just modified RQ in place
+    Returns
+    =======
+    None : all work is done internally and desired objects are saved.
 
-
-def computeSV(i_g, RQ, v0, dr0):
-    lrq = np.log(RA[:, i_g])
-    erq = lrq[1:] - lrq[:t]  # random walk
-    v = ig2(v0, dr0, erq)
-    return sqrt(v)
-
-
-def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
-    em = YS - SA[i_g, 0, :]
-    v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
-    v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
-    v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
-    SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
-    SMT[:60] = SMV[i_g, 0]
-    SMT[60:124] = SMV[i_g, 1]
-    SMT[124:157] = SMV[i_g, 2]
-
-    # Again, no returns because we modify SMV and SMT in place
-
-##----- begin MCMC
-start_time = time()
-iter_time = time()
-for i_f in xrange(NF):
+    """
+    start_time = time()
+    iter_time = time()
     for i_g in xrange(1, NG):
-
         S0, P0, P1 = kf_SWR(YS, QA[:, i_g-1], RA[:, i_g-1], SMT, SI, PI, t)
         SA[i_g, :, :] = gibbs1_swr(S0, P0, P1, t)
 
         # stochastic volatilities
         f = np.diff(np.column_stack([SI, SA[i_g, :, :]])).T
 
-        updateRQ(i_g, RA, SV, R0, ss0, f)   # update RA inplace
-        updateRQ(i_g, QA, SV, Q0, ss0, f)   # update QA inplace
+        updateRQ(i_g, RA, SV, R0, ss0, f, t, tm1)   # update RA inplace
+        updateRQ(i_g, QA, SV, Q0, ss0, f, t, tm1)   # update QA inplace
 
-        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0)  # svr
-        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0)  # svq
+        SV[i_g, 0] = computeSV(i_g, RA, v0, dr0, t)  # svr
+        SV[i_g, 1] = computeSV(i_g, QA, v0, dr0, t)  # svq
 
         # measurement error
-        measurement_error(YS, SA, vm0, dm0, SMV, SMT)
+        measurement_error(i_g, YS, SA, vm0, dm0, SMV, SMT)
 
         ##################################### Done breaking it up!
 
@@ -191,13 +182,11 @@ for i_f in xrange(NF):
             i_time = time() - iter_time
             msg = "Iteration ({0}, {1}). Total time: {2:.5f}. "
             msg += "Time since last print: {3:.5f}"
-            print(msg.format(i_f, i_g, tot_time, i_time))
+            p_func(msg.format(i_f, i_g, tot_time, i_time))
             iter_time = time()
 
-    if i_f < 10:
-        num = '0' + str(i_f)
-    else:
-        num = str(i_f)
+    # Add leading 0 for single digit file counts to be consistent with Matlab
+    num = '0' + str(i_f) if i_f < 10 else str(i_f)
     f_name = save_path.format(num=num)
 
     SD = SA[0:NG-1:10, :, :]
@@ -212,8 +201,6 @@ for i_f in xrange(NF):
             'VD': VD,
             'MD': MD}
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
     savemat(f_name, data)
 
   # Re-initialize the Gibbs arrays as buffer for back step
@@ -222,3 +209,18 @@ for i_f in xrange(NF):
     RA[:, 0] = RA[:, NGm]
     SV[0, :] = SV[NGm, :]
     SMV[0, :] = SMV[NGm, :]
+
+##----- Do MCMC calculations in series.
+if __name__ == '__main__':
+    # The if __name__  == '__main__' clause allows us to "run" this file
+    # normally to do the simulation in series. However, it also allows
+    # us to import the mcmc_loop function in the parallel driver,
+    # reducing code repetition.
+    #
+    # To 'run' the file simply to `python css2012.py` from the command
+    # prompt or do `run css2012` from the ipython prompt.
+
+    start_time = time()
+    for i_f in xrange(NF):
+        mcmc_loop(i_f)
+

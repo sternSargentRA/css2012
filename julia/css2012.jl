@@ -1,15 +1,14 @@
 #### css2012.jl: Julia implementation of Matlab file SWUC_model_SWRprior_2011.m
 ##---------------------------- Initial Setup
-tic()
 using DataFrames
 using MAT
 
 ##---------------------------- Run Control parameters
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
-output_dir = "SimData"
+output_dir = "ParData"
 
-# Base file name to append numbers to. Leave $(num) and (:stuff) in there!
-file_name = (:"swuc_swrp_$(num).mat")
+# Base file name to append numbers to. Leave $(number) in there!
+file_name(number::String) = "swuc_swrp_$(number).mat"
 
 skip = 100  # number of Gibbs draws to do before printing
 
@@ -26,7 +25,7 @@ include("cssfuncs.jl")  # Just include these functions from the other file.
 ##---------------------------- Load Data
 # TODO: Is this the best way to have non-repetitive code inclusion? My only
 #       hangup is that some variables that are used below aren't defined in
-#       this file.
+#       this file, they are defined in load_data.jl
 include("load_data.jl")
 
 ##---------------------------- Main Course
@@ -78,10 +77,9 @@ SV[1, :] = [svr0 svq0]
 SMT = [sm0*ones(157,1); sm_post_48*ones(size(date[158:221,1]))]
 SMV[1, :] = sm0
 
-# msqeeze(A) = squeeze(A, find(([size(A)..]. ==1)))
 
-iter_time = time()
-for file = 1:NF
+function mcmc_loop(file)
+    iter_time = time()
     for iter = 2:NG
         S0, P0, P1 = kf_SWR(YS, QA[:, iter-1], RA[:, iter-1], SMT, SI, PI, T)
         SA[iter,:,:] = reshape(gibbs1_swr(S0, P0, P1, T), (1, 2, T))
@@ -114,8 +112,8 @@ for file = 1:NF
     VD = SV[1:10:NG, :]
     MD = SMV[1:10:NG, :]
 
-    num = file < 10 ? string("0", file) : file
-    save_path = joinpath(pwd(), output_dir, eval(file_name))
+    number = file < 10 ? string("0", file) : string(file)
+    save_path = joinpath(pwd(), output_dir, file_name(number))
 
     matwrite(save_path, {"SD" => SD, "QD" => QD, "RD" => RD, "VD" => VD,
                          "MD" => MD})
@@ -128,4 +126,3 @@ for file = 1:NF
     SMV[1,:] = SMV[NG,:]
 
 end
-tot_time = toc()

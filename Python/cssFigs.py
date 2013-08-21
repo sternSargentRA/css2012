@@ -9,7 +9,8 @@ from css2012Funcs import ig2
 
 NF = 20
 NB = 10
-f_name = "./SimData/swuc_swrp_{0}.mat"
+data_dir = './SimData'
+f_name = data_dir + os.path.sep + "swuc_swrp_{0}.mat"
 
 if len(sys.argv) > 1:
     args = sys.argv[1:]
