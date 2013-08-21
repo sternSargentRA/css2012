@@ -13,7 +13,7 @@ from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr,
 if sys.version_info[0] >= 3:
     xrange = range
 
-##---------------------------- Run Control parameters
+##----- Run Control parameters
 NF = 20  # Number of times to run the MCMC process
 NG = 5000  # number of draws from Gibbs sampler per data file
 NGm = NG - 1  # constant used in calculations
@@ -79,11 +79,10 @@ else:
     t = y.shape[0]
     tm1 = t - 1
 
-##----- Set VAR properties
+##----- Set VAR properties and priors
 L = 0  # VAR lag order
 YS = y[L: t]
 
-##----- A weakly informative prior
 # prior mean on initial value of state first element is \pi
 SI = ones(2) * Y0.mean()
 
@@ -95,18 +94,18 @@ Q0 = R0 / 25  # prior variance for trend innovations
 
 df = 2  # prior degrees of freedom
 
-##----- priors for sv (inverse gamma) (standard dev for volatility innovation)
-# stock and watson's calibrated value adjusted for time aggregation
+# priors for sv (inverse gamma) (standard dev for volatility innovation)
+# v0 is stock and watson's calibrated value adjusted for time aggregation
 v0 = 10.
 svr0 = 0.2236 * sqrt((v0 + 1) / v0)
 svq0 = 0.2236 * sqrt((v0 + 1) / v0)
 dr0 = v0 * (svr0 ** 2.)
 dq0 = v0 * (svq0 ** 2.)
 
-##----- prior variance for log R0, log Q0 (ballpark numbers)
+# prior variance for log R0, log Q0 (ballpark numbers)
 ss0 = 5.
 
-##----- prior for measurement-error variance \sigma_m (prior is same for both
+# prior for measurement-error variance \sigma_m (prior is same for both
 # periods)
 vm0 = 7.
 sm0 = 0.5 * sqrt(R0) * sqrt((vm0 + 1) / vm0)
@@ -116,14 +115,14 @@ dm0 = vm0 * (sm0 ** 2)
 # This is just to simplify programming
 sm_post_48 = 0.0001
 
-##----- initialize gibbs arrays
+##----- Initialize gibbs, volatility, and measurement arrays
 SA = zeros((NG, 2, t))  # draws of the state vector
 QA = zeros((t+1, NG))  # stochastic volatilities for SW permanent innovation
 RA = zeros((t+1, NG))  # stochastic volatilities for SW transient innovation
 SV = zeros((NG, 2))  # standard error for log volatility innovations
 SMV = zeros((NG, 3))  # standard error for measurement error
 
-##----- initialize stochastic volatilities and measurement error variance
+# initialize stochastic volatilities and measurement error variance
 QA[:, 0] = Q0
 RA[:, 0] = R0
 SV[0, :] = [svr0, svq0]
@@ -135,6 +134,7 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 
+##----- Define main mcmc function
 def mcmc_loop(i_f, p_func=print):
     """
     Based on inputs in this file, run an entire simulation and save the

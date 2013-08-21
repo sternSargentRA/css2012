@@ -10,6 +10,7 @@ rank = comm.Get_rank()  # Which process we are on
 size = comm.Get_size()  # Total number of processes
 
 
+##----- Define simulation functions
 def svmhT(hlag, alpha, delta, sv, yt, hlast):
     """
     This function returns a draw from the posterior conditional density
