@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 from time import time
@@ -11,14 +12,19 @@ from css2012Funcs import (svmhT, svmh0, svmh, kf_SWR, ig2, gibbs1_swr,
 
 if sys.version_info[0] >= 3:
     xrange = range
+
 ##---------------------------- Run Control parameters
+NF = 20  # Number of times to run the MCMC process
+NG = 5000  # number of draws from Gibbs sampler per data file
+NGm = NG - 1  # constant used in calculations
+
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
 output_dir = "SimData"
 
 # Base file name to append numbers to. Leave {num} in there somewhere!
 file_name = "swuc_swrp_{num}.mat"
 
-skip = 10  # number of Gibbs draws to do before printing status
+skip = 100  # number of Gibbs draws to do before printing status
 
 # Other params needed below, but not to be modified.
 save_path = output_dir + os.path.sep + file_name
@@ -26,11 +32,6 @@ save_path = output_dir + os.path.sep + file_name
 # Create output directory if needed
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-
-##---------------------------- Main Course
-NF = 20
-NG = 50  # number of draws from Gibbs sampler per data file
-NGm = NG - 1
 
 ##----- Load data
 # Load military data
@@ -134,7 +135,7 @@ SMT[157:] = sm_post_48
 SMV[0, :] = sm0
 
 
-def mcmc_loop(i_f):
+def mcmc_loop(i_f, p_func=print):
     """
     Based on inputs in this file, run an entire simulation and save the
     data to a Matlab .mat file.
@@ -145,11 +146,18 @@ def mcmc_loop(i_f):
         An integer that is used to replace {num} in the `file_name`
         variable from above when saving the .mat file.
 
+    p_func : function, optional(default=print)
+        The function to be used to print updates. This defaults to the
+        print function imported from __future__. This option is used
+        so that the parallel code can alter the print message to specify
+        which process is calling print.
+
     Returns
     =======
     None : all work is done internally and desired objects are saved.
 
     """
+    start_time = time()
     iter_time = time()
     for i_g in xrange(1, NG):
         S0, P0, P1 = kf_SWR(YS, QA[:, i_g-1], RA[:, i_g-1], SMT, SI, PI, t)
@@ -174,7 +182,7 @@ def mcmc_loop(i_f):
             i_time = time() - iter_time
             msg = "Iteration ({0}, {1}). Total time: {2:.5f}. "
             msg += "Time since last print: {3:.5f}"
-            print(msg.format(i_f, i_g, tot_time, i_time))
+            p_func(msg.format(i_f, i_g, tot_time, i_time))
             iter_time = time()
 
     # Add leading 0 for single digit file counts to be consistent with Matlab
@@ -204,10 +212,14 @@ def mcmc_loop(i_f):
 
 ##----- Do MCMC calculations in series.
 if __name__ == '__main__':
-    # The if __name__ clause allows us to "run" this file normally to do
-    # the simulation in series. However, it still allows us to import
-    # the mcmc_loop function in the parallel driver, reducing code
-    # repetition.
+    # The if __name__  == '__main__' clause allows us to "run" this file
+    # normally to do the simulation in series. However, it also allows
+    # us to import the mcmc_loop function in the parallel driver,
+    # reducing code repetition.
+    #
+    # To 'run' the file simply to `python css2012.py` from the command
+    # prompt or do `run css2012` from the ipython prompt.
+
     start_time = time()
     for i_f in xrange(NF):
         mcmc_loop(i_f)
