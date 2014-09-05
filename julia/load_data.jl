@@ -1,5 +1,6 @@
 # Load military data
-A = readcsv("../data/UKdata.txt")[:, 2]
+const data_dir = joinpath(dirname(dirname(@__FILE__)), "data")
+A = readcsv(joinpath(data_dir, "UKdata.txt"))[:, 2]
 y =(log(A[2:end]) - log(A[1:end-1]))
 T = size(y, 1)
 date = 1210 + [0:1:T-1]

@@ -1,0 +1,34 @@
+Timer unit: 1e-06 s
+
+File: css2012.py
+Function: updateRQ at line 124
+Total time: 0.77718 s
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   124                                           def updateRQ(i_g, RQ, SV, RQ0, ss0, f):
+   125        98          257      2.6      0.0      RQ[0, i_g] = svmh0(RQ[1, i_g - 1], 0, 1, SV[i_g-1, 0],
+   126        98         2785     28.4      0.4                         np.log(RQ0), ss0)
+   127                                           
+   128     21658        24235      1.1      3.1      for i in range(1, t):
+   129     21560        37834      1.8      4.9          RQ[i, i_g] = svmh(RQ[i+1, i_g-1], RQ[i-1, i_g], 0, 1,
+   130     21560       708625     32.9     91.2                            SV[i_g-1, 0], f[i-1, 0], RQ[i, i_g-1])
+   131                                           
+   132        98          204      2.1      0.0      RQ[t, i_g] = svmhT(RQ[tm1, i_g], 0, 1, SV[i_g-1, 0], f[tm1, 0],
+   133        98         3240     33.1      0.4                         RQ[tm1, i_g-1])
+
+File: css2012.py
+Function: measurement_error at line 145
+Total time: 0.004048 s
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   145                                           def measurement_error(YS, SA, vm0, dm0, SMV, SMT):
+   146        49          321      6.6      7.9      em = YS - SA[i_g, 0, :]
+   147        49          841     17.2     20.8      v1 = ig2(vm0, dm0, em[:60])  # measurement error 1791-1850 (Lindert-Williamson)
+   148        49          789     16.1     19.5      v2 = ig2(vm0, dm0, em[60:124])  # measurement error 1851-1914 (Bowley)
+   149        49          728     14.9     18.0      v3 = ig2(vm0, dm0, em[124:157])  # measurement error 1915-1947 (Labor Department)
+   150        49          899     18.3     22.2      SMV[i_g, :] = np.array([v1, v2, v3]) ** .5
+   151        49          197      4.0      4.9      SMT[:60] = SMV[i_g, 0]
+   152        49          142      2.9      3.5      SMT[60:124] = SMV[i_g, 1]
+   153        49          131      2.7      3.2      SMT[124:157] = SMV[i_g, 2]

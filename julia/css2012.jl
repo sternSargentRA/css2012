@@ -5,7 +5,8 @@ using MAT
 
 ##---------------------------- Run Control parameters
 # Folder for saving the data. Relative to this folder. Exclude trailing slash
-output_dir = "ParData"
+const output_dir = "NewParData"
+const this_dir = dirname(@__FILE__)
 
 # Base file name to append numbers to. Leave $(number) in there!
 file_name(number::String) = "swuc_swrp_$(number).mat"
@@ -16,7 +17,7 @@ NG = 5000 # number of draws from Gibbs sampler per data file
 NF = 20  # Number of times to run the simulation
 
 if !isdir(output_dir)
-    mkdir("./$output_dir")
+    mkdir(joinpath(this_dir, "$output_dir"))
 end
 
 ##---------------------------- Function definitions
@@ -119,10 +120,10 @@ function mcmc_loop(file)
                          "MD" => MD})
 
     # reinitialize gibbs arrays (buffer for back step)
-    SA[1,:] = SA[NG,:]
-    QA[:,1] = QA[:,NG]
-    RA[:,1] = RA[:,NG]
-    SV[1,:] = SV[NG,:]
-    SMV[1,:] = SMV[NG,:]
-
+    SA[1, :] = SA[NG,:]
+    QA[:, 1] = QA[:,NG]
+    RA[:, 1] = RA[:,NG]
+    SV[1, :] = SV[NG,:]
+    SMV[1, :] = SMV[NG,:]
+    nothing
 end

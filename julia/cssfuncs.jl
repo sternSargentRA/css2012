@@ -2,15 +2,15 @@ function kf_SWR(Y, Q, R, Sm, SI, PI, T)
     # This function performs the forward kalman filter recursions for the
     # Stock-Watson-Romer model. Y is inflation
     #
-    # Q,R are the SW state innovation variances
+    # Q, R are the SW state innovation variances
     # Sm is the standard deviation of the measurement error
-    # SI,PI are the initial values for the recursions, S(1|0) and P(1|0)
+    # SI, PI are the initial values for the recursions, S(1|0) and P(1|0)
     # T is the sample size
 
-    S0 = zeros(2,T)  # current estimate of the state, S(t|t)
-    S1 = zeros(2,T)  # one-step ahead estimate of the state, S(t+1|t)
-    P0 = zeros(2,2,T)  # current estimate of the covariance matrix, P(t|t)
-    P1 = zeros(2,2,T)  # one-step ahead covariance matrix, P(t+1|t)
+    S0 = zeros(2, T)  # current estimate of the state, S(t|t)
+    S1 = zeros(2, T)  # one-step ahead estimate of the state, S(t+1|t)
+    P0 = zeros(2, 2, T)  # current estimate of the covariance matrix, P(t|t)
+    P1 = zeros(2, 2, T)  # one-step ahead covariance matrix, P(t+1|t)
 
     # constant parameters
     A = [0 1; 0 1]
@@ -20,25 +20,25 @@ function kf_SWR(Y, Q, R, Sm, SI, PI, T)
     y10 = C*SI  # E(y(t|t-1)
     D = Sm[1]
     V10 = C*PI*C' + D*D'  # V(y(t|t-1)
-    S0[:,1] = SI + PI*C'*inv(V10)*( Y[:,1] - y10 )  # E(S(t|t))
-    P0[:,:,1] = PI - PI*C'*inv(V10)*C*PI  # V(S(t|t))
-    S1[:,1] = A*S0[:, 1]  # E(S(t+1|t)
+    S0[:, 1] = SI + PI*C'*inv(V10)*( Y[:,1] - y10 )  # E(S(t|t))
+    P0[:, :, 1] = PI - PI*C'*inv(V10)*C*PI  # V(S(t|t))
+    S1[:, 1] = A*S0[:, 1]  # E(S(t+1|t)
     B = [R[2]^.5 Q[2]^.5; 0 Q[2]^.5]
-    P1[:,:,1] = A*P0[:,:,1]*A' + B*B'  # V(S(t+1|t))
+    P1[:, :, 1] = A*P0[:, :,1]*A' + B*B'  # V(S(t+1|t))
 
     for i = 2:T
         y10 = C*S1[:,i-1] # E(y(t|t-1)
         D = Sm[i]
-        V10 = C*P1[:,:,i-1]*C' + D*D' # V(y(t|t-1)
-        S0[:,i] = S1[:,i-1] + P1[:,:,i-1]*C'*inv(V10)*( Y[:,i] - y10 ) # E(S(t|t))
-        P0[:,:,i] = P1[:,:,i-1] - P1[:,:,i-1]*C'*inv(V10)*C*P1[:,:,i-1] # V(S(t|t))
-        S1[:,i] = A*S0[:,i] # E(S(t+1|t)
+        V10 = C*P1[:,:, i-1]*C' + D*D' # V(y(t|t-1)
+        S0[:, i] = S1[:, i-1] + P1[:, :, i-1]*C'*inv(V10)*( Y[:,i] - y10 ) # E(S(t|t))
+        P0[:, :, i] = P1[:, :, i-1] - P1[:, :, i-1]*C'*inv(V10)*C*P1[:, :, i-1] # V(S(t|t))
+        S1[:, i] = A*S0[:,i] # E(S(t+1|t)
         B = [R[i+1]^.5 Q[i+1]^.5; 0 Q[i+1]^.5]
-        P1[:,:,i] = A*P0[:,:,i]*A' + B*B' # V(S(t+1|t)
+        P1[:, :, i] = A*P0[:, :,i]*A' + B*B' # V(S(t+1|t)
     end
 
 
-    return S0,P0,P1
+    return S0, P0, P1
 end
 
 
@@ -46,7 +46,7 @@ function gibbs1_swr(S0, P0, P1, T)
 
     # TODO: This function is *not* correct!!
 
-    # S0,P0,P1 are outputs of the forward Kalman filter
+    # S0, P0, P1 are outputs of the forward Kalman filter
     A = [0 1; 0 1]
 
     # initialize arrays for Gibbs sampler
@@ -62,19 +62,19 @@ function gibbs1_swr(S0, P0, P1, T)
 
     # iterating back through the rest of the sample
     for i = 1:T-1
-       PM = P0[:,:,T-i]*A'*inv(P1[:,:,T-i])
-       P = P0[:,:,T-i] - PM*A*P0[:,:,T-i]
-       SM = S0[:,T-i] + PM*(SA[:,T-i+1] - A*S0[:,T-i])
-       SA[:,T-i] = SM + real(sqrtm(P))*wa[:,T-i]
+       PM = P0[:,:, T-i]*A'*inv(P1[:, :, T-i])
+       P = P0[:,:, T-i] - PM*A*P0[:, :, T-i]
+       SM = S0[:,T-i] + PM*(SA[:, T-i+1] - A*S0[:, T-i])
+       SA[:,T-i] = SM + real(sqrtm(P))*wa[:, T-i]
     end
 
     return SA
 end
 
 
-function svmh0(hlead,alpha,delta,sv,mu0,ss0)
+function svmh0(hlead, alpha, delta, sv, mu0, ss0)
 
-    # h = svmh0(hlead,alpha,delta,sv,mu0,ss0)
+    # h = svmh0(hlead, alpha, delta, sv, mu0, ss0)
 
     # This file returns a draw from the posterior conditional density
     # for the stochastic volatility parameter at time 0.  This is conditional
@@ -94,15 +94,15 @@ function svmh0(hlead,alpha,delta,sv,mu0,ss0)
     mu = ss*(mu0/ss0 + delta*(log(hlead) - alpha)/ssv)
 
     # draw from lognormal (accept = 1, since there is no observation)
-    h = exp(mu + (ss^.5)*randn(1,1))
+    h = exp(mu + (ss^.5)*randn())
 
     return h, mu, ss
 end
 
 
-function svmh(hlead,hlag,alpha,delta,sv,yt,hlast)
+function svmh(hlead, hlag, alpha, delta, sv, yt, hlast)
 
-    # h = svmh(hlead,hlag,alpha,delta,sv,y,hlast)
+    # h = svmh(hlead, hlag, alpha, delta, sv, y,hlast)
 
     # This file returns a draw from the posterior conditional density
     # for the stochastic volatility parameter at time t.  This is conditional
@@ -123,14 +123,14 @@ function svmh(hlead,hlag,alpha,delta,sv,yt,hlast)
     ss = (sv^2)/(1+delta^2)
 
     # candidate draw from lognormal
-    htrial = exp(mu + (ss^.5)*randn(1,1))
+    htrial = exp(mu + (ss^.5)*randn())
 
     # acceptance probability
     lp1 = -0.5*log(htrial) - (yt^2)/(2*htrial)
     lp0 = -0.5*log(hlast) - (yt^2)/(2*hlast)
-    accept = min(1,exp(lp1 - lp0))
+    accept = min(1, exp(lp1 - lp0))
 
-    u = rand(1)
+    u = rand()
     if u <= accept
        h = htrial
        R = 0
@@ -143,9 +143,9 @@ function svmh(hlead,hlag,alpha,delta,sv,yt,hlast)
 end
 
 
-function svmhT(hlag,alpha,delta,sv,yt,hlast)
+function svmhT(hlag, alpha, delta, sv, yt, hlast)
 
-    # h = svmhT(hlag,alpha,delta,sv,y,hlast)
+    # h = svmhT(hlag, alpha, delta, sv, y,hlast)
 
     # This file returns a draw from the posterior conditional density
     # for the stochastic volatility parameter at time T.  This is conditional
@@ -166,14 +166,14 @@ function svmhT(hlag,alpha,delta,sv,yt,hlast)
     ss = sv^2
 
     # candidate draw from lognormal
-    htrial = exp(mu + (ss^.5)*randn(1,1))
+    htrial = exp(mu + (ss^.5)*randn())
 
     # acceptance probability
     lp1 = -0.5*log(htrial) - (yt^2)/(2*htrial)
     lp0 = -0.5*log(hlast) - (yt^2)/(2*hlast)
-    accept = min(1,exp(lp1 - lp0))
+    accept = min(1, exp(lp1 - lp0))
 
-    u = rand(1)
+    u = rand()
     if u <= accept
        h = htrial
        R = 0
@@ -186,22 +186,22 @@ function svmhT(hlag,alpha,delta,sv,yt,hlast)
 end
 
 
-function ig2(v0,d0,x)
+function ig2(v0, d0, x)
 
-    # [v,v1,d1] = ig2s(v0,d0,x)
+    # [v, v1, d1] = ig2s(v0, d0, x)
 
     # This file returns posterior draw, v, from an inverse gamma with prior
     # degrees of freedom v0/2 and scale parameter d0/2.  The posterior values
     # are v1 and d1, respectively. x is a vector of innovations.
 
-    # The simulation method follows bauwens, et al p 317.  IG2(s,v)
+    # The simulation method follows bauwens, et al p 317.  IG2(s, v)
     #      simulate x = chisquare(v)
     #      deliver s/x
 
-    T = size(x,1)
+    T = size(x, 1)
     v1 = v0 + T
     d1 = d0 + x'*x
-    z = randn(v1,1)
+    z = randn(v1, 1)
     x = z'*z
     v = d1/x
 
@@ -211,31 +211,31 @@ end
 
 ## Define mcmc functions
 function updateRQ(iter, RQ, SV, RQ0, ss0, f, T)
-    RQ[1,iter] = svmh0(RQ[2,iter-1],0,1,SV[iter-1,1],log(R0),ss0)[1][1]
+    RQ[1, iter] = svmh0(RQ[2, iter-1],0, 1, SV[iter-1, 1],log(R0),ss0)[1][1]
 
     for t = 2:T
-        RQ[t,iter] = svmh(RQ[t+1,iter-1],RQ[t-1,iter],0,1,SV[iter-1,1],f[t-1,1],RQ[t,iter-1])[1][1]
+        RQ[t, iter] = svmh(RQ[t+1, iter-1],RQ[t-1, iter],0, 1, SV[iter-1, 1],f[t-1, 1],RQ[t, iter-1])[1][1]
     end
 
-    RQ[T+1,iter] = svmhT(RQ[T,iter],0,1,SV[iter-1,1],f[T,1],RQ[T+1,iter-1])[1][1]
+    RQ[T+1, iter] = svmhT(RQ[T, iter],0, 1, SV[iter-1, 1],f[T, 1],RQ[T+1, iter-1])[1][1]
 end
 
 
 function computeSV(iter, RQ, v0, dr0)
     lr = log(RQ[:,iter])
-    er = lr[2:T+1,1] - lr[1:T,1]  # random walk
-    v = ig2(v0,dr0,er)[1][1]
+    er = lr[2:T+1, 1] - lr[1:T, 1]  # random walk
+    v = ig2(v0, dr0, er)[1][1]
     return sqrt(v)
 end
 
 
 function measurement_error(iter, YS, SA, vm0, dm0, SMV, SMT)
-    em = YS - squeeze(SA[iter,1,:], 2)
-    v1 = ig2(vm0,dm0,em[1,1:60]')[1][1] # measurement error 1791-1850 (Lindert-Williamson)
-    v2 = ig2(vm0,dm0,em[1,61:124]')[1][1] # measurement error 1851-1914 (Bowley)
-    v3 = ig2(vm0,dm0,em[1,125:157]')[1][1] # measurement error 1915-1947 (Labor Department)
-    SMV[iter,:] = [v1 v2 v3].^.5
-    SMT[1:60,1] = SMV[iter,1]*ones(60,1)
-    SMT[61:124,1] = SMV[iter,2]*ones(64,1)
-    SMT[125:157,1] = SMV[iter,3]*ones(33,1)
+    em = YS - squeeze(SA[iter, 1,:], 2)
+    v1 = ig2(vm0, dm0, em[1, 1:60]')[1][1] # measurement error 1791-1850 (Lindert-Williamson)
+    v2 = ig2(vm0, dm0, em[1, 61:124]')[1][1] # measurement error 1851-1914 (Bowley)
+    v3 = ig2(vm0, dm0, em[1, 125:157]')[1][1] # measurement error 1915-1947 (Labor Department)
+    SMV[iter, :] = [v1 v2 v3].^.5
+    SMT[1:60, 1] = SMV[iter, 1]*ones(60, 1)
+    SMT[61:124, 1] = SMV[iter, 2]*ones(64, 1)
+    SMT[125:157, 1] = SMV[iter, 3]*ones(33, 1)
 end
