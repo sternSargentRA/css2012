@@ -11,13 +11,17 @@ const this_dir = dirname(@__FILE__)
 # Base file name to append numbers to. Leave $(number) in there!
 file_name(number::String) = "swuc_swrp_$(number).mat"
 
-skip = 100  # number of Gibbs draws to do before printing
+const skip = 100  # number of Gibbs draws to do before printing
 
-NG = 5000 # number of draws from Gibbs sampler per data file
-NF = 20  # Number of times to run the simulation
+const NG = 5000 # number of draws from Gibbs sampler per data file
+const NF = 20  # Number of times to run the simulation
 
-if !isdir(output_dir)
-    mkdir(joinpath(this_dir, "$output_dir"))
+if myid() == 1
+
+    if !isdir(output_dir)
+        mkdir(joinpath(this_dir, "$output_dir"))
+    end
+
 end
 
 ##---------------------------- Function definitions
