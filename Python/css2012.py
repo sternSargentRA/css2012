@@ -87,7 +87,7 @@ YS = y[L: t]
 SI = ones(2) * Y0.mean()
 
 # prior variance on initial state
-PI = np.array([[.15 ** 2, 0], [0, 0.025 ** 2]])
+PI = np.array([[.15 ** 2, 0], [0, 0.025 ** 2]])  # eq 4
 
 R0 = Y0.var(ddof=1)  # prior variance for SW transient innovations
 Q0 = R0 / 25  # prior variance for trend innovations

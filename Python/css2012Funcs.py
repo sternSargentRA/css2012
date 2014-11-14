@@ -3,11 +3,11 @@ import numpy as np
 from random import normalvariate
 from numpy import zeros
 from scipy.linalg import inv, sqrtm
-from mpi4py import MPI
+# from mpi4py import MPI
 
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()  # Which process we are on
-size = comm.Get_size()  # Total number of processes
+# comm = MPI.COMM_WORLD
+# rank = comm.Get_rank()  # Which process we are on
+# size = comm.Get_size()  # Total number of processes
 
 
 ##----- Define simulation functions
